@@ -1,0 +1,73 @@
+# server-lens — Example config
+# Copy to /etc/server-lens/server-lens.toml on install
+
+[settings]
+scan_schedule              = "0 */6 * * *"
+scan_timeout_seconds       = 30
+disk_warning_threshold_pct = 20
+ignored_tools              = []
+
+[mcp]
+enabled = true
+
+[api]
+host  = "127.0.0.1"
+port  = 7845
+# token = ""   # Required if host != 127.0.0.1
+
+[theme]
+name = "claude"
+
+[auth]
+# github_token = "ghp_xxxx"
+
+[webhooks]
+# "tool.discovered"    = "https://n8n.example.com/webhook/server-lens"
+# "version.outdated"   = "https://n8n.example.com/webhook/server-lens"
+
+[[probes]]
+name       = "nginx"
+probe_type = "apt"
+category   = "tools"
+args.package = "nginx"
+
+[[probes]]
+name       = "bun"
+probe_type = "github"
+category   = "runtime"
+repo_url   = "https://github.com/oven-sh/bun"
+args.owner      = "oven-sh"
+args.repo       = "bun"
+args.tag_prefix = "bun-v"
+
+[[probes]]
+name       = "npm"
+probe_type = "npm"
+category   = "runtime"
+repo_url   = "https://www.npmjs.com/package/npm"
+args.package = "npm"
+
+[[probes]]
+name       = "pnpm"
+probe_type = "npm"
+category   = "runtime"
+repo_url   = "https://www.npmjs.com/package/pnpm"
+args.package = "pnpm"
+
+# Container images — add when Docker is used on Linux server
+# [[probes]]
+# name       = "n8n"
+# probe_type = "dockerhub"
+# category   = "container"
+# repo_url   = "https://hub.docker.com/r/n8nio/n8n"
+# args.image      = "n8nio/n8n"
+# args.tag_filter = "^\\d+\\.\\d+\\.\\d+$"
+
+# [[probes]]
+# name       = "outline"
+# probe_type = "ghcr"
+# category   = "container"
+# repo_url   = "https://github.com/outline/outline"
+# args.owner      = "outlinewiki"
+# args.image      = "outline"
+# args.tag_filter = "^\\d+\\.\\d+\\.\\d+$"

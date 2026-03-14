@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Database (runtime state)
+*.db
+*.db-shm
+*.db-wal
+server-lens.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test / Coverage
+coverage/
+.nyc_output/
+
+# Cache
+.cache/
+.turbo/
+
+# Bun
+bun.lockb
