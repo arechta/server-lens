@@ -97,7 +97,7 @@ export function DashboardScreen({
                 key={category}
                 category={category}
                 tools={items}
-                defaultCollapsed={isApt && !aptExpanded}
+                collapsed={isApt ? !aptExpanded : undefined}
                 compact={compact}
               />
             );

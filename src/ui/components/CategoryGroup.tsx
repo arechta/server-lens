@@ -10,6 +10,8 @@ interface CategoryGroupProps {
   tools: VersionEntry[];
   /** If true, group starts collapsed (apt uses this by default) */
   defaultCollapsed?: boolean;
+  /** Controlled collapsed state — overrides internal state when provided */
+  collapsed?: boolean;
   compact?: boolean;
 }
 
@@ -17,15 +19,19 @@ export function CategoryGroup({
   category,
   tools,
   defaultCollapsed = false,
+  collapsed: collapsedProp,
   compact = false,
 }: CategoryGroupProps) {
-  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed);
+  // Use controlled prop if provided, otherwise internal state
+  const collapsed = collapsedProp !== undefined ? collapsedProp : internalCollapsed;
   const theme = useTheme();
 
   const outdated = tools.filter((t) => t.is_outdated).length;
   const statusColor = outdated > 0 ? theme.warning : theme.success;
   const statusSymbol = outdated > 0 ? (tools.some((t) => t.update_type === "major") ? "⚑" : "→") : "✓";
-  const collapseHint = defaultCollapsed ? (collapsed ? " [+]" : " [–]") : "";
+  const isCollapsible = collapsedProp !== undefined || defaultCollapsed;
+  const collapseHint = isCollapsible ? (collapsed ? " [+]" : " [–]") : "";
 
   return (
     <Box flexDirection="column" marginBottom={1}>
