@@ -12,7 +12,8 @@
     "dev": "bun run --watch src/index.tsx",
     "build": "bun build src/index.tsx --outdir=dist --target=bun",
     "build:linux": "bun build src/index.tsx --compile --target=bun-linux-x64 --outfile=dist/server-lens",
-    "build:linux-arm64": "bun build src/index.tsx --compile --target=bun-linux-arm64 --outfile=dist/server-lens-arm64"
+    "build:linux-arm64": "bun build src/index.tsx --compile --target=bun-linux-arm64 --outfile=dist/server-lens-arm64",
+    "postinstall": "bun scripts/patch-yoga.js"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
