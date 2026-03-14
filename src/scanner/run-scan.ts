@@ -9,6 +9,17 @@ import { enrichWithProbes } from "../engine/probe-engine";
 import { emitScanEvents } from "../events/event-emitter";
 import type { SnapshotSummary, VersionEntry, ToolCategory, UpdateType } from "../schema/types";
 
+export interface ScanOptions {
+  /** Suppress all console output — for cron/systemd use */
+  quiet?: boolean;
+  /** Run discovery and probes but skip all DB writes, events, and webhooks */
+  dryRun?: boolean;
+  /** Fetch release notes from upstream probes (GitHub body, npm readme) */
+  withNotes?: boolean;
+  /** Called with the current tool name as each probe runs */
+  onProgress?: (toolName: string) => void;
+}
+
 function buildSummary(tools: VersionEntry[]): SnapshotSummary["summary"] {
   const byUpdateType: Record<UpdateType, number> = {
     major: 0,
@@ -44,15 +55,17 @@ function buildSummary(tools: VersionEntry[]): SnapshotSummary["summary"] {
   };
 }
 
-export async function runScan(): Promise<{ snapshot: SnapshotSummary; snapshotId: number }> {
+export async function runScan(options?: ScanOptions): Promise<{ snapshot: SnapshotSummary; snapshotId: number }> {
+  const { quiet = false, dryRun = false, withNotes = false, onProgress } = options ?? {};
   const config = loadConfig();
-  const db = getDatabase(config.dbPath);
+
+  if (!quiet) process.stderr.write("Scanning...\n");
 
   const discovered = await runAllScanners();
   const valid = discovered.filter((d) => d?.name);
   const ignored = new Set((config.settings.ignored_tools ?? []).map((s) => s.toLowerCase()));
   const filtered = valid.filter((d) => !ignored.has(d.name.toLowerCase()));
-  const tools = await enrichWithProbes(filtered, config);
+  const tools = await enrichWithProbes(filtered, config, { withNotes, onProgress });
 
   const hostname = await getHostname();
   const scannedAt = new Date().toISOString();
@@ -65,6 +78,14 @@ export async function runScan(): Promise<{ snapshot: SnapshotSummary; snapshotId
     summary,
     tools,
   };
+
+  // Dry-run: skip all DB writes, events, and webhooks
+  if (dryRun) {
+    if (!quiet) process.stderr.write(`Dry run complete. ${tools.length} tools scanned, ${summary.outdated} outdated. No data written.\n`);
+    return { snapshot, snapshotId: -1 };
+  }
+
+  const db = getDatabase(config.dbPath);
 
   const snapResult = db.run(
     `INSERT INTO snapshots (scanned_at, hostname, total_tools, outdated, probe_failed, untracked, scan_status, payload_json)
@@ -102,6 +123,8 @@ export async function runScan(): Promise<{ snapshot: SnapshotSummary; snapshotId
          latest_release_date=excluded.latest_release_date, probe_type=excluded.probe_type,
          probe_status=excluded.probe_status, probe_source=excluded.probe_source,
          probe_error=excluded.probe_error, repo_url=excluded.repo_url,
+         release_notes=COALESCE(excluded.release_notes, tools.release_notes),
+         release_notes_source=COALESCE(excluded.release_notes_source, tools.release_notes_source),
          last_checked_at=excluded.last_checked_at`,
       t.name,
       t.display_name,
@@ -124,7 +147,7 @@ export async function runScan(): Promise<{ snapshot: SnapshotSummary; snapshotId
     );
   }
 
-  return { snapshot, snapshotId };
+  return { snapshot, snapshotId: scanId };
 }
 
 async function getHostname(): Promise<string> {

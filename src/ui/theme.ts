@@ -40,6 +40,22 @@ export const themes: Record<string, Theme> = {
   },
 };
 
-export function getTheme(name: string = "claude"): Theme {
+/** Resolve a theme by name, merging TOML custom token overrides when name is "custom" */
+export function getTheme(name: string = "claude", customTokens?: Record<string, string | undefined>): Theme {
+  if (name === "custom" && customTokens) {
+    const base = themes.claude;
+    return {
+      accent:      customTokens["accent"]       ?? base.accent,
+      accentDim:   customTokens["accent-dim"]   ?? base.accentDim,
+      success:     customTokens["success"]      ?? base.success,
+      warning:     customTokens["warning"]      ?? base.warning,
+      error:       customTokens["error"]        ?? base.error,
+      info:        customTokens["info"]         ?? base.info,
+      heading:     customTokens["heading"]      ?? base.heading,
+      muted:       customTokens["muted"]        ?? base.muted,
+      border:      customTokens["border"]       ?? base.border,
+      bgHighlight: customTokens["bg-highlight"] ?? base.bgHighlight,
+    };
+  }
   return themes[name] ?? themes.claude;
 }
