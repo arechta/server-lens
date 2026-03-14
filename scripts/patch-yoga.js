@@ -2,21 +2,17 @@
 /**
  * Patch yoga-wasm-web/dist/node.js to use the ASM.js version.
  *
- * Only needed on Linux: Bun's compiled binary (bun build --compile) cannot
- * load yoga.wasm via fs.readFile because the virtual filesystem (/$bunfs/root/)
- * is not accessible to the host OS at runtime. The ASM.js version is
- * self-contained JS with no external file dependency.
+ * Bun's compiled binary (bun build --compile) cannot load yoga.wasm via
+ * fs.readFile because the virtual filesystem (/$bunfs/root/) is not accessible
+ * to the host OS at runtime. The ASM.js version is self-contained JS with no
+ * external file dependency and works on all platforms.
  *
- * On Windows/macOS, bun run works fine without this patch — skip silently.
+ * Must run on all platforms (including Windows) so that cross-compiled Linux
+ * binaries built on Windows also include the patched version.
  * This runs automatically after `bun install` via the `postinstall` script.
  */
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
-
-// Only needed for Linux compiled binaries
-if (process.platform !== "linux") {
-  process.exit(0);
-}
 
 const nodePath = fileURLToPath(new URL("../node_modules/yoga-wasm-web/dist/node.js", import.meta.url));
 
