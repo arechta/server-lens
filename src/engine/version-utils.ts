@@ -24,6 +24,7 @@ export function computeUpdateType(
 ): UpdateType {
   if (!latest) return "null";
   if (!current) return "unknown";
+  if (current === latest) return "none";
 
   const va = parseSemver(current);
   const vb = parseSemver(latest);
