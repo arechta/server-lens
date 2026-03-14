@@ -4,6 +4,7 @@ interface GithubRelease {
   tag_name: string;
   published_at: string | null;
   html_url?: string;
+  body?: string | null;
 }
 
 export class GithubProbe implements Probe {
@@ -78,6 +79,9 @@ export class GithubProbe implements Probe {
         version = version.slice(tagPrefix.length);
       }
 
+      const withNotes = args._with_notes === "true";
+      const notes = withNotes && data.body ? data.body.slice(0, 4000) : null;
+
       return {
         latest_version: version || null,
         latest_release_date: data.published_at ?? null,
@@ -85,6 +89,8 @@ export class GithubProbe implements Probe {
         probe_source: apiUrl,
         probe_status: "success",
         error_message: null,
+        release_notes: notes,
+        release_notes_source: notes ? "github-release" : null,
       };
     } catch (e) {
       return {

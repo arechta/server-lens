@@ -1,0 +1,64 @@
+import React, { useState } from "react";
+import { Box, Text, useInput } from "ink";
+import { useTheme } from "../theme-context";
+import type { VersionEntry } from "../../schema/types";
+import { ToolRow } from "./ToolRow";
+import { Divider } from "./Divider";
+
+interface CategoryGroupProps {
+  category: string;
+  tools: VersionEntry[];
+  /** If true, group starts collapsed (apt uses this by default) */
+  defaultCollapsed?: boolean;
+  compact?: boolean;
+}
+
+export function CategoryGroup({
+  category,
+  tools,
+  defaultCollapsed = false,
+  compact = false,
+}: CategoryGroupProps) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const theme = useTheme();
+
+  const outdated = tools.filter((t) => t.is_outdated).length;
+  const statusColor = outdated > 0 ? theme.warning : theme.success;
+  const statusSymbol = outdated > 0 ? (tools.some((t) => t.update_type === "major") ? "⚑" : "→") : "✓";
+  const collapseHint = defaultCollapsed ? (collapsed ? " [+]" : " [–]") : "";
+
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      {/* Category header */}
+      <Box>
+        <Text color={theme.accent} bold>
+          {category.toUpperCase()}
+        </Text>
+        {collapsed ? (
+          <>
+            <Text color={theme.muted}> ({tools.length} packages</Text>
+            {outdated > 0 && <Text color={statusColor}>, {outdated} outdated</Text>}
+            <Text color={theme.muted}>)</Text>
+          </>
+        ) : (
+          outdated > 0 && <Text color={statusColor}> ({outdated} outdated)</Text>
+        )}
+        <Text color={statusColor}>{collapseHint}</Text>
+      </Box>
+
+      <Divider width={compact ? 40 : 60} />
+
+      {/* Tool rows — hidden when collapsed */}
+      {!collapsed && tools.map((tool) => (
+        <ToolRow key={tool.name} tool={tool} compact={compact} />
+      ))}
+
+      {/* Collapsed hint */}
+      {collapsed && (
+        <Text color={theme.muted} dimColor>
+          Press 'a' to expand
+        </Text>
+      )}
+    </Box>
+  );
+}

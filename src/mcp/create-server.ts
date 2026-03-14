@@ -167,11 +167,24 @@ export function createMcpServer(db: Database): McpServer {
     return { content: [{ type: "text" as const, text: JSON.stringify(body) }] };
   });
 
+  // Resources — read-only data URIs
   server.registerResource("tools-all", "tools://all", { title: "All tools", mimeType: "application/json" }, async () => ({ contents: [{ uri: "tools://all", mimeType: "application/json", text: JSON.stringify(getLatestSnapshot(db)?.tools ?? []) }] }));
   server.registerResource("tools-outdated", "tools://outdated", { title: "Outdated tools", mimeType: "application/json" }, async () => ({ contents: [{ uri: "tools://outdated", mimeType: "application/json", text: JSON.stringify(getOutdatedTools(db)) }] }));
-  server.registerResource("tools-category", new ResourceTemplate("tools://category/{name}", { list: async () => ({ resources: [] }) }), { title: "Tools by category", mimeType: "application/json" }, async (uri, { name }) => ({ contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(getToolsWithFilters(db, { category: name })) }] }));
+  server.registerResource("tools-category", new ResourceTemplate("tools://category/{name}", { list: async () => ({ resources: [] }) }), { title: "Tools by category", mimeType: "application/json" }, async (uri, { name }) => {
+    const catName = Array.isArray(name) ? name[0] : name;
+    return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(getToolsWithFilters(db, { category: catName })) }] };
+  });
+  server.registerResource("tools-update-type", new ResourceTemplate("tools://update-type/{type}", { list: async () => ({ resources: [{ uri: "tools://update-type/major", name: "Major updates" }, { uri: "tools://update-type/minor", name: "Minor updates" }, { uri: "tools://update-type/patch", name: "Patch updates" }] }) }), { title: "Tools by update type", mimeType: "application/json" }, async (uri, { type }) => {
+    const typeName = Array.isArray(type) ? type[0] : type;
+    return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(getToolsWithFilters(db, { update_type: typeName })) }] };
+  });
   server.registerResource("snapshots-latest", "snapshots://latest", { title: "Latest snapshot", mimeType: "application/json" }, async () => ({ contents: [{ uri: "snapshots://latest", mimeType: "application/json", text: JSON.stringify(getLatestSnapshot(db) ?? {}) }] }));
+  server.registerResource("snapshots-list", "snapshots://list", { title: "Snapshot history", mimeType: "application/json" }, async () => ({ contents: [{ uri: "snapshots://list", mimeType: "application/json", text: JSON.stringify(getSnapshotList(db, 50).map((r) => ({ id: r.id, scanned_at: r.scanned_at, hostname: r.hostname, total_tools: r.total_tools, outdated: r.outdated, probe_failed: r.probe_failed, scan_status: r.scan_status }))) }] }));
   server.registerResource("events-recent", "events://recent", { title: "Recent events", mimeType: "application/json" }, async () => ({ contents: [{ uri: "events://recent", mimeType: "application/json", text: JSON.stringify(getEvents(db, { limit: 50 })) }] }));
+  server.registerResource("events-type", new ResourceTemplate("events://type/{event}", { list: async () => ({ resources: [] }) }), { title: "Events by type", mimeType: "application/json" }, async (uri, { event }) => {
+    const eventName = Array.isArray(event) ? event[0] : event;
+    return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(getEvents(db, { event: eventName, limit: 100 })) }] };
+  });
   server.registerResource("health-status", "health://status", { title: "System health", mimeType: "application/json" }, async () => {
     const snapshots = getSnapshotList(db, 1);
     const lastSnap = snapshots[0];
@@ -182,12 +195,29 @@ export function createMcpServer(db: Database): McpServer {
   });
   server.registerResource("schedules-all", "schedules://all", { title: "All schedules", mimeType: "application/json" }, async () => ({ contents: [{ uri: "schedules://all", mimeType: "application/json", text: JSON.stringify(getAllSchedules(db)) }] }));
 
+  // Prompts — pre-built agent workflow templates
   server.registerPrompt("update-summary", { title: "Update Summary", description: "Summarise everything that needs updating on the server, grouped by priority." }, async () => ({
     messages: [{ role: "user" as const, content: { type: "text" as const, text: "Use get_outdated, get_probe_failures, and get_events (recent) to produce a structured markdown summary with sections for: major (review required), minor/patch (safe to update), probe failures, and any system alerts." } }],
   }));
   server.registerPrompt("pre-update-check", { title: "Pre-Update Check", description: "Run a fresh scan and return a full pre-update report." }, async () => ({
     messages: [{ role: "user" as const, content: { type: "text" as const, text: "Use scan_now, poll get_scan_status until completed, then get_outdated and get_tools (filter systemd + pm2). Produce an ordered checklist: services to stop, updates to apply by stage, items to skip (major updates), estimated downtime." } }],
   }));
+  server.registerPrompt("diagnose-probes", { title: "Diagnose Probe Failures", description: "Investigate why some tools could not be checked for latest versions. Identifies rate limiting, network failures, and misconfigured probe definitions." }, async () => ({
+    messages: [{ role: "user" as const, content: { type: "text" as const, text: "Use get_probe_failures to list all tools with failed/timeout/rate_limited probe status. Then use get_events with event='probe.failed' and event='probe.timeout' and event='probe.rate_limited' to get historical context. Finally use get_system_health for network/scheduler state. Produce a report grouped by failure type with suggested fixes — e.g. 'Add github_token to server-lens.toml to avoid GitHub API rate limiting', 'Check network connectivity for dockerhub probes', 'Verify probe args.owner and args.repo are correct for GitHub probes'." } }],
+  }));
+  server.registerPrompt("what-changed", {
+    title: "What Changed",
+    description: "Summarise what changed on the server since a given time or the previous scan.",
+    argsSchema: { since: z.string().optional().describe("ISO 8601 datetime — defaults to previous scan timestamp") },
+  }, async ({ since }) => {
+    const sinceStr = since ?? (() => {
+      const snaps = getSnapshotList(db, 2);
+      return snaps[1]?.scanned_at ?? new Date(Date.now() - 86400000).toISOString();
+    })();
+    return {
+      messages: [{ role: "user" as const, content: { type: "text" as const, text: `Use get_events with since="${sinceStr}" to retrieve all changes since that time. Then use get_snapshots to find the two most recent snapshots and compare their tool arrays. Produce a chronological change log covering: new tools discovered, tools removed, version changes (with before/after), probe failures that appeared, and system alerts. Group by category and note which changes were triggered by api/cron/cli/mcp. Since time: ${sinceStr}` } }],
+    };
+  });
 
   return server;
 }
