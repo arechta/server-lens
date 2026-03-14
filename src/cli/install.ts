@@ -4,7 +4,7 @@
  */
 
 import { loadConfig } from "../config/config-loader";
-import { writeFileSync, mkdirSync, existsSync, chmodSync } from "fs";
+import { writeFileSync, mkdirSync, existsSync, copyFileSync, chmodSync } from "fs";
 import { dirname } from "path";
 
 function tryWrite(path: string, content: string, mode?: number): boolean {
@@ -99,6 +99,7 @@ exec ${binPath}
 
   if (dryRun) {
     console.log("  [dry-run] Files that would be written:");
+    console.log(`    ${binPath}  (binary)`);
     for (const f of files) {
       console.log(`    ${f.path}  (${f.description})`);
     }
@@ -106,6 +107,22 @@ exec ${binPath}
     console.log("  [dry-run] Config should be at:", etcConfigPath);
     console.log("");
     return;
+  }
+
+  // --- Copy binary to /usr/local/bin ---
+  const selfPath = process.execPath === process.argv[0]
+    ? process.execPath   // compiled binary: execPath is the binary itself
+    : process.argv[1];   // bun run: argv[1] is the script path (skip for dev)
+  const isSelf = selfPath && !selfPath.endsWith(".ts") && !selfPath.endsWith(".tsx");
+  if (isSelf) {
+    try {
+      mkdirSync(dirname(binPath), { recursive: true });
+      copyFileSync(selfPath, binPath);
+      chmodSync(binPath, 0o755);
+      console.log(`  ✓ ${binPath}`);
+    } catch {
+      console.log(`  ✗ ${binPath}  (permission denied — copy manually: cp ${selfPath} ${binPath})`);
+    }
   }
 
   let anyFailed = false;
