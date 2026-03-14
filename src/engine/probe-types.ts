@@ -11,6 +11,8 @@ export interface ProbeResult {
   probe_source: string | null;
   probe_status: ProbeStatus;
   error_message: string | null;
+  release_notes?: string | null;
+  release_notes_source?: string | null;
 }
 
 export interface Probe {

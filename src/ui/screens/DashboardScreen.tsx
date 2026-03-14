@@ -1,49 +1,19 @@
-import React from "react";
-import { Box, Text } from "ink";
+import React, { useState } from "react";
+import { Box, Text, useApp } from "ink";
 import { useTheme } from "../theme-context";
+import { Header } from "../components/Header";
+import { CategoryGroup } from "../components/CategoryGroup";
+import { AlertBar } from "../components/AlertBar";
+import { useKeyInput } from "../hooks/useKeyInput";
 import type { SnapshotSummary, VersionEntry } from "../../schema/types";
+import type { AlertItem } from "../components/AlertBar";
 
 interface DashboardScreenProps {
   snapshot: SnapshotSummary | null;
   tools: VersionEntry[];
   filterOutdated?: boolean;
   filterCategory?: string | null;
-}
-
-function getUpdateSymbol(updateType: VersionEntry["update_type"]): string {
-  switch (updateType) {
-    case "major":
-      return "⚑";
-    case "minor":
-    case "patch":
-      return "→";
-    case "none":
-      return "✓";
-    case "null":
-    case "unknown":
-      return "?";
-    default:
-      return "–";
-  }
-}
-
-function getUpdateLabel(updateType: VersionEntry["update_type"]): string {
-  switch (updateType) {
-    case "major":
-      return "MAJOR";
-    case "minor":
-      return "minor";
-    case "patch":
-      return "patch";
-    case "unknown":
-      return "?ver";
-    case "none":
-      return "✓";
-    case "null":
-      return "–";
-    default:
-      return "–";
-  }
+  systemAlerts?: AlertItem[];
 }
 
 function groupByCategory(tools: VersionEntry[]): Map<string, VersionEntry[]> {
@@ -59,43 +29,53 @@ function groupByCategory(tools: VersionEntry[]): Map<string, VersionEntry[]> {
   return map;
 }
 
+// Category display order
+const CATEGORY_ORDER = ["os", "runtime", "tools", "container", "systemd", "pm2", "snap", "apt"];
+
+function sortedCategories(groups: Map<string, VersionEntry[]>): string[] {
+  const keys = [...groups.keys()];
+  return keys.sort((a, b) => {
+    const ia = CATEGORY_ORDER.indexOf(a);
+    const ib = CATEGORY_ORDER.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b);
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+}
+
 export function DashboardScreen({
   snapshot,
   tools,
+  filterOutdated = false,
+  filterCategory = null,
+  systemAlerts = [],
 }: DashboardScreenProps) {
   const theme = useTheme();
+  const { exit } = useApp();
+  const [aptExpanded, setAptExpanded] = useState(false);
+
+  // Responsive: compact when terminal < 80 cols
+  const cols = process.stdout.columns ?? 80;
+  const compact = cols < 80;
+
+  useKeyInput({
+    onQuit: () => exit(),
+    onKey: (key) => {
+      if (key === "a") setAptExpanded((v) => !v);
+    },
+  });
+
   const groups = groupByCategory(tools);
+  const categories = sortedCategories(groups);
 
   return (
     <Box flexDirection="column" padding={1}>
-      <Box borderStyle="single" borderColor={theme.accent} paddingX={1}>
-        <Text color={theme.heading} bold>
-          server-lens
-        </Text>
-        <Text color={theme.muted}> v0.1.0</Text>
-        {snapshot && (
-          <>
-            <Text color={theme.muted}>
-              {"  •  "}
-              {snapshot.hostname}
-            </Text>
-            <Text color={theme.muted}>
-              {"  •  Last scan: "}
-              {new Date(snapshot.scanned_at).toLocaleString()}
-            </Text>
-            <Text color={theme.muted}>
-              {"  •  "}
-              {snapshot.summary.total} tools
-            </Text>
-            {snapshot.summary.outdated > 0 && (
-              <Text color={theme.warning}>
-                {"  •  "}
-                {snapshot.summary.outdated} outdated
-              </Text>
-            )}
-          </>
-        )}
-      </Box>
+      <Header
+        snapshot={snapshot}
+        filterOutdated={filterOutdated}
+        filterCategory={filterCategory}
+      />
 
       {!snapshot ? (
         <Box marginTop={1}>
@@ -109,56 +89,27 @@ export function DashboardScreen({
         </Box>
       ) : (
         <Box flexDirection="column" marginTop={1}>
-          {Array.from(groups.entries()).map(([category, items]) => (
-            <Box key={category} flexDirection="column" marginBottom={1}>
-              <Text color={theme.accent} bold>
-                {category.toUpperCase()}
-              </Text>
-              <Text color={theme.border}>────────────────────────────────</Text>
-              {items.map((tool) => {
-                const symbol = getUpdateSymbol(tool.update_type);
-                const label = getUpdateLabel(tool.update_type);
-                const symbolColor =
-                  tool.update_type === "major"
-                    ? theme.error
-                    : tool.update_type === "none" || tool.update_type === "null"
-                      ? tool.update_type === "none"
-                        ? theme.success
-                        : theme.muted
-                      : theme.warning;
+          {categories.map((category) => {
+            const items = groups.get(category)!;
+            const isApt = category === "apt";
+            return (
+              <CategoryGroup
+                key={category}
+                category={category}
+                tools={items}
+                defaultCollapsed={isApt && !aptExpanded}
+                compact={compact}
+              />
+            );
+          })}
+        </Box>
+      )}
 
-                return (
-                  <Box key={tool.name}>
-                    <Text>{tool.name.padEnd(18)}</Text>
-                    <Text>
-                      {(tool.current_version ?? "–").padEnd(10)}
-                    </Text>
-                    <Text color={symbolColor}>
-                      {tool.is_outdated ? "→" : "✓"}
-                    </Text>
-                    <Text>
-                      {" "}
-                      {(tool.latest_version ?? "–").padEnd(10)}
-                    </Text>
-                    <Text color={symbolColor}>
-                      {" "}
-                      {label.padEnd(7)}
-                    </Text>
-                    <Text color={theme.muted}>
-                      {" "}
-                      {(tool.probe_type ?? "–").padEnd(10)}
-                    </Text>
-                    <Text color={theme.muted}>
-                      {" "}
-                      {tool.latest_release_date
-                        ? new Date(tool.latest_release_date).toISOString().slice(0, 10)
-                        : "–"}
-                    </Text>
-                  </Box>
-                );
-              })}
-            </Box>
-          ))}
+      <AlertBar alerts={systemAlerts} />
+
+      {groups.size > 0 && (
+        <Box marginTop={1}>
+          <Text color={theme.muted} dimColor>q: quit  a: toggle apt</Text>
         </Box>
       )}
     </Box>

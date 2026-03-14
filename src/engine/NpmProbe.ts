@@ -3,6 +3,7 @@ import type { Probe, ProbeArgs, ProbeResult } from "./probe-types";
 interface NpmPackage {
   "dist-tags"?: { latest?: string };
   time?: Record<string, string>;
+  readme?: string;
 }
 
 export class NpmProbe implements Probe {
@@ -39,6 +40,9 @@ export class NpmProbe implements Probe {
       const time = data.time;
       const date = version && time ? time[version] ?? null : null;
 
+      const withNotes = args._with_notes === "true";
+      const readme = withNotes && data.readme ? data.readme.slice(0, 4000) : null;
+
       return {
         latest_version: version,
         latest_release_date: date,
@@ -46,6 +50,8 @@ export class NpmProbe implements Probe {
         probe_source: regUrl,
         probe_status: version ? "success" : "failed",
         error_message: version ? null : "No latest version",
+        release_notes: readme,
+        release_notes_source: readme ? "npm-readme" : null,
       };
     } catch (e) {
       return {
