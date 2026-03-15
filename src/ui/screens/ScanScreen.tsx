@@ -24,7 +24,6 @@ interface ScanScreenProps {
   scanLog?: ScanLogEntry[];
 }
 
-const MAX_LOG_ROWS = 16;
 
 function truncpad(s: string | null | undefined, len: number): string {
   if (!s) return " ".repeat(len);
@@ -92,10 +91,8 @@ export function ScanScreen({
 }: ScanScreenProps) {
   const theme = useTheme();
 
-  // Show the most recent MAX_LOG_ROWS entries; skip auto-apt (they're batch, all ~0ms)
-  const visible = scanLog
-    .filter((e) => e.probeType !== "apt" || e.probeFailed || e.isOutdated)
-    .slice(-MAX_LOG_ROWS);
+  // Skip auto-apt entries (batch lookups, all ~0ms — not useful for timing)
+  const visible = scanLog.filter((e) => e.probeType !== "apt" || e.probeFailed || e.isOutdated);
 
   return (
     <Box flexDirection="column" padding={1}>
