@@ -16,12 +16,8 @@ export interface ScanOptions {
   dryRun?: boolean;
   /** Fetch release notes from upstream probes (GitHub body, npm readme) */
   withNotes?: boolean;
-  /** Called with the current tool name as each probe starts */
+  /** Called with the current tool name as each probe runs */
   onProgress?: (toolName: string) => void;
-  /** Called after each individual probe completes with the result and elapsed ms */
-  onProbeComplete?: (entry: VersionEntry, durationMs: number) => void;
-  /** Called once after the batch apt probe finishes */
-  onBatchAptComplete?: (count: number, durationMs: number) => void;
 }
 
 function buildSummary(tools: VersionEntry[]): SnapshotSummary["summary"] {
@@ -60,7 +56,7 @@ function buildSummary(tools: VersionEntry[]): SnapshotSummary["summary"] {
 }
 
 export async function runScan(options?: ScanOptions): Promise<{ snapshot: SnapshotSummary; snapshotId: number }> {
-  const { quiet = false, dryRun = false, withNotes = false, onProgress, onProbeComplete, onBatchAptComplete } = options ?? {};
+  const { quiet = false, dryRun = false, withNotes = false, onProgress } = options ?? {};
   const config = loadConfig();
 
   if (!quiet) process.stderr.write("Scanning...\n");
@@ -69,7 +65,7 @@ export async function runScan(options?: ScanOptions): Promise<{ snapshot: Snapsh
   const valid = discovered.filter((d) => d?.name);
   const ignored = new Set((config.settings.ignored_tools ?? []).map((s) => s.toLowerCase()));
   const filtered = valid.filter((d) => !ignored.has(d.name.toLowerCase()));
-  const tools = await enrichWithProbes(filtered, config, { withNotes, onProgress, onProbeComplete, onBatchAptComplete });
+  const tools = await enrichWithProbes(filtered, config, { withNotes, onProgress });
 
   const hostname = await getHostname();
   const scannedAt = new Date().toISOString();
