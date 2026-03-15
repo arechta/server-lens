@@ -8,7 +8,7 @@ import type { Scanner, DiscoveredTool } from "./types";
 async function getNvmPathFromShell(env: Record<string, string>): Promise<string | null> {
   try {
     const proc = Bun.spawn(
-      ["bash", "-l", "-c", "shopt -s extdebug 2>/dev/null; declare -F nvm 2>/dev/null; shopt -u extdebug 2>/dev/null"],
+      ["bash", "-c", "shopt -s extdebug 2>/dev/null; declare -F nvm 2>/dev/null; shopt -u extdebug 2>/dev/null"],
       { stdout: "pipe", stderr: "pipe", env }
     );
     const out = await new Response(proc.stdout).text();
