@@ -98,7 +98,8 @@ if (subcommand === "scan") {
       withNotes: hasWithNotes,
       onProgress: (name: string) => {
         currentProbe = name;
-        probedCount++;
+        // Phase messages like "(discovering tools…)" are not individual tool probes
+        if (!name.startsWith("(")) probedCount++;
         scheduleRerender();
       },
       onProbeComplete: (entry, durationMs) => {
