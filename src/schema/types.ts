@@ -31,8 +31,10 @@ export type ProbeType =
   | "apt"
   | "github"
   | "npm"
+  | "node"
   | "dockerhub"
   | "ghcr"
+  | "snap"
   | "binary"
   | "script"
   | null;

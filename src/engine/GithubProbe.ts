@@ -1,4 +1,5 @@
 import type { Probe, ProbeArgs, ProbeResult } from "./probe-types";
+import { getRandomUserAgent } from "../utils/user-agent";
 
 interface GithubRelease {
   tag_name: string;
@@ -29,6 +30,7 @@ export class GithubProbe implements Probe {
 
     const headers: Record<string, string> = {
       Accept: "application/vnd.github.v3+json",
+      "User-Agent": getRandomUserAgent(),
     };
     if (this.token) {
       headers.Authorization = `Bearer ${this.token}`;

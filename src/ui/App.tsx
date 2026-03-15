@@ -22,6 +22,7 @@ interface AppProps {
   filterOutdated?: boolean;
   filterCategory?: string | null;
   systemAlerts?: AlertItem[];
+  recentScans?: Array<{ id: number; scanned_at: string; hostname: string; total_tools: number }>;
   // status
   statusData?: StatusData | null;
   // events
@@ -48,6 +49,7 @@ export function App({
   filterOutdated = false,
   filterCategory = null,
   systemAlerts = [],
+  recentScans = [],
   statusData = null,
   eventsData = [],
   eventsFilter,
@@ -73,6 +75,7 @@ export function App({
             filterOutdated={filterOutdated}
             filterCategory={filterCategory}
             systemAlerts={systemAlerts}
+            recentScans={recentScans}
           />
         )}
         {screen === "status" && <StatusScreen data={statusData} />}

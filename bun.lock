@@ -1,11 +1,11 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 1,
   "workspaces": {
     "": {
       "name": "server-lens",
       "dependencies": {
         "@iarna/toml": "^2.2.5",
+        "@mishieck/ink-titled-box": "^0.4.2",
         "@modelcontextprotocol/sdk": "^1.0.0",
         "cron-parser": "^4.9.0",
         "ink": "^4.4.0",
@@ -26,6 +26,8 @@
     "@hono/node-server": ["@hono/node-server@1.19.11", "", { "peerDependencies": { "hono": "4.12.8" } }, "sha512-dr8/3zEaB+p0D2n/IUrlPF1HZm586qgJNXK1a9fhg/PzdtkK7Ksd5l312tJX2yBuALqDYBlG20QEbayqPyxn+g=="],
 
     "@iarna/toml": ["@iarna/toml@2.2.5", "", {}, "sha512-trnsAYxU3xnS1gPHPyU961coFyLkh4gAD/0zQ5mymY4yOZ+CYvsPqUbOFSw0aDM4y0tV7tiFxL/1XfXPNC6IPg=="],
+
+    "@mishieck/ink-titled-box": ["@mishieck/ink-titled-box@0.4.2", "", { "peerDependencies": { "ink": "^6.0.0", "react": "^19.1.0", "typescript": "^5" } }, "sha512-4tRyg2n9dPGY66EEchpjHSs+QL5Wdv8kAjRLg/BnXVimwwIl38sLhgphw8dGCGIK2pFz+owLi4vuQBdOdJivBA=="],
 
     "@modelcontextprotocol/sdk": ["@modelcontextprotocol/sdk@1.27.1", "", { "dependencies": { "@hono/node-server": "1.19.11", "ajv": "8.18.0", "ajv-formats": "3.0.1", "content-type": "1.0.5", "cors": "2.8.6", "cross-spawn": "7.0.6", "eventsource": "3.0.7", "eventsource-parser": "3.0.6", "express": "5.2.1", "express-rate-limit": "8.3.1", "hono": "4.12.8", "jose": "6.2.1", "json-schema-typed": "8.0.2", "pkce-challenge": "5.0.1", "raw-body": "3.0.2", "zod-to-json-schema": "3.25.1" }, "peerDependencies": { "zod": "3.25.76" } }, "sha512-sr6GbP+4edBwFndLbM60gf07z0FQ79gaExpnsjMGePXqFcSSb7t6iscpjk9DhFhwd+mTEQrzNafGP8/iGGFYaA=="],
 

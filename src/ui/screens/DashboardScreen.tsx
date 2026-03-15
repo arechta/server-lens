@@ -5,8 +5,15 @@ import { Header } from "../components/Header";
 import { CategoryGroup } from "../components/CategoryGroup";
 import { AlertBar } from "../components/AlertBar";
 import { useKeyInput } from "../hooks/useKeyInput";
-import type { SnapshotSummary, VersionEntry } from "../../schema/types";
+import type { SnapshotSummary, VersionEntry, UpdateType } from "../../schema/types";
 import type { AlertItem } from "../components/AlertBar";
+
+export interface RecentScanItem {
+  id: number;
+  scanned_at: string;
+  hostname: string;
+  total_tools: number;
+}
 
 interface DashboardScreenProps {
   snapshot: SnapshotSummary | null;
@@ -14,6 +21,74 @@ interface DashboardScreenProps {
   filterOutdated?: boolean;
   filterCategory?: string | null;
   systemAlerts?: AlertItem[];
+  recentScans?: RecentScanItem[];
+}
+
+/** Priority order: items needing update first (MAJOR → minor → patch → unknown → none/null) */
+const UPDATE_PRIORITY: Record<UpdateType, number> = {
+  major: 0,
+  minor: 1,
+  patch: 2,
+  unknown: 3,
+  none: 4,
+  null: 5,
+};
+
+function parseReleaseDate(d: string | null): number {
+  if (!d || typeof d !== "string") return Number.MAX_SAFE_INTEGER;
+  const t = Date.parse(d.slice(0, 10));
+  return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
+}
+
+/** Sortable key for latest_version: bigger version sorts later when we compare descending */
+function versionSortKey(v: string | null): string {
+  if (!v || typeof v !== "string") return "";
+  const s = v.replace(/^v/, "").trim();
+  const semver = /^(\d+)\.(\d+)\.(\d+)/.exec(s);
+  if (semver)
+    return [
+      String(parseInt(semver[1]!, 10)).padStart(6, "0"),
+      String(parseInt(semver[2]!, 10)).padStart(6, "0"),
+      String(parseInt(semver[3]!, 10)).padStart(6, "0"),
+    ].join(".");
+  if (/^\d{8}$/.test(s) || /^\d{4}\.\d{2}/.test(s)) return s;
+  return s;
+}
+
+/** Sort: 1) update priority, 2) oldest release date, 3) latest version (bigger first), 4) probe type, 5) name */
+function compareTools(a: VersionEntry, b: VersionEntry): number {
+  const pa = UPDATE_PRIORITY[a.update_type ?? "null"] ?? 5;
+  const pb = UPDATE_PRIORITY[b.update_type ?? "null"] ?? 5;
+  if (pa !== pb) return pa - pb;
+  const da = parseReleaseDate(a.latest_release_date);
+  const db = parseReleaseDate(b.latest_release_date);
+  if (da !== db) return da - db;
+  const va = versionSortKey(a.latest_version);
+  const vb = versionSortKey(b.latest_version);
+  if (va !== vb) return vb.localeCompare(va);
+  const probeA = String(a.probe_type ?? "");
+  const probeB = String(b.probe_type ?? "");
+  if (probeA !== probeB) return probeA.localeCompare(probeB);
+  return (a.display_name ?? a.name).localeCompare(b.display_name ?? b.name);
+}
+
+/** APT priority tier: 0=linux image, 1=kernel/headers, 2=system, 3=security, 4=other (not priority) */
+function aptPriorityTier(name: string): number {
+  const n = name.toLowerCase();
+  if (n.startsWith("linux-image")) return 0;
+  if (n.startsWith("linux-headers") || n.startsWith("linux-modules")) return 1;
+  const system = [
+    "systemd", "udev", "dbus", "util-linux", "coreutils", "mount", "procps",
+    "base-files", "libc6", "multiarch", "bash", "dash", "grep", "sed", "gzip", "tar",
+    "findutils", "login", "hostname", "sysvinit", "e2fsprogs", "init",
+  ];
+  if (system.some((p) => n.startsWith(p) || n === p)) return 2;
+  const security = [
+    "openssl", "libssl", "sudo", "libapt", "ca-certificates", "policykit",
+    "passwd", "shadow", "audit", "cryptsetup", "gnutls", "libgnutls",
+  ];
+  if (n.startsWith("apt") || security.some((p) => n.startsWith(p) || n.includes(p))) return 3;
+  return 4;
 }
 
 function groupByCategory(tools: VersionEntry[]): Map<string, VersionEntry[]> {
@@ -23,8 +98,23 @@ function groupByCategory(tools: VersionEntry[]): Map<string, VersionEntry[]> {
     list.push(t);
     map.set(t.category, list);
   }
-  for (const list of map.values()) {
-    list.sort((a, b) => a.name.localeCompare(b.name));
+  for (const [category, list] of map) {
+    let toSort = list;
+    if (category === "apt") {
+      toSort = list.filter((t) => {
+        const tier = aptPriorityTier(t.name);
+        return tier < 4 || t.is_outdated;
+      });
+      toSort.sort((a, b) => {
+        const ta = aptPriorityTier(a.name);
+        const tb = aptPriorityTier(b.name);
+        if (ta !== tb) return ta - tb;
+        return compareTools(a, b);
+      });
+      map.set(category, toSort);
+    } else {
+      toSort.sort(compareTools);
+    }
   }
   return map;
 }
@@ -50,6 +140,7 @@ export function DashboardScreen({
   filterOutdated = false,
   filterCategory = null,
   systemAlerts = [],
+  recentScans = [],
 }: DashboardScreenProps) {
   const theme = useTheme();
   const { exit } = useApp();
@@ -75,6 +166,7 @@ export function DashboardScreen({
         snapshot={snapshot}
         filterOutdated={filterOutdated}
         filterCategory={filterCategory}
+        recentScans={recentScans}
       />
 
       {!snapshot ? (

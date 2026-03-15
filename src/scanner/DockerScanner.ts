@@ -1,6 +1,6 @@
 import type { Scanner, DiscoveredTool } from "./types";
 
-interface DockerPsImage {
+interface DockerPsRow {
   Image?: string;
   Names?: string;
 }
@@ -45,7 +45,7 @@ export class DockerScanner implements Scanner {
       for (const line of psOut.trim().split("\n")) {
         if (!line) continue;
         try {
-          const row = JSON.parse(line) as DockerPsImage;
+          const row = JSON.parse(line) as DockerPsRow;
           const image = row.Image;
           if (!image) continue;
 
@@ -57,6 +57,9 @@ export class DockerScanner implements Scanner {
           if (seen.has(key)) continue;
           seen.add(key);
 
+          const rawNames = (row.Names ?? "").trim();
+          const containerName = rawNames ? rawNames.split(",")[0].replace(/^\//, "").trim() : undefined;
+
           tools.push({
             name: shortName,
             display_name: shortName,
@@ -64,6 +67,7 @@ export class DockerScanner implements Scanner {
             category: "container",
             source: "docker",
             source_key: image,
+            container_name: containerName || undefined,
           });
         } catch {
           // skip malformed line

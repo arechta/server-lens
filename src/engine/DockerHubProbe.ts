@@ -1,4 +1,5 @@
 import type { Probe, ProbeArgs, ProbeResult } from "./probe-types";
+import { getRandomUserAgent } from "../utils/user-agent";
 
 interface DockerHubTag {
   name: string;
@@ -63,8 +64,9 @@ export class DockerHubProbe implements Probe {
       const allTags: DockerHubTag[] = [];
       let next: string | null = url;
 
+      const ua = getRandomUserAgent();
       while (next) {
-        const res = await fetch(next);
+        const res = await fetch(next, { headers: { "User-Agent": ua } });
         if (!res.ok) {
           return {
             latest_version: null,
