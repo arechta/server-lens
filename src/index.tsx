@@ -79,6 +79,19 @@ if (subcommand === "scan") {
 
   const instance = render(makeEl());
 
+  // Debounce rerenders: batch all state mutations within one JS tick into a single
+  // rerender call. This prevents Ink cursor-tracking glitches when many probes
+  // complete in rapid succession (e.g. fast APT batch results all arriving at once).
+  let _rerenderScheduled = false;
+  function scheduleRerender() {
+    if (_rerenderScheduled) return;
+    _rerenderScheduled = true;
+    setImmediate(() => {
+      _rerenderScheduled = false;
+      instance.rerender(makeEl());
+    });
+  }
+
   try {
     await runScan({
       dryRun: hasDryRun,
@@ -86,7 +99,7 @@ if (subcommand === "scan") {
       onProgress: (name: string) => {
         currentProbe = name;
         probedCount++;
-        instance.rerender(makeEl());
+        scheduleRerender();
       },
       onProbeComplete: (entry, durationMs) => {
         scanLog.push({
@@ -99,7 +112,7 @@ if (subcommand === "scan") {
           updateType: entry.update_type,
           durationMs,
         });
-        instance.rerender(makeEl());
+        scheduleRerender();
       },
     });
     scanPhase = "done";

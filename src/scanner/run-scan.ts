@@ -61,8 +61,8 @@ export async function runScan(options?: ScanOptions): Promise<{ snapshot: Snapsh
   const { quiet = false, dryRun = false, withNotes = false, onProgress, onProbeComplete } = options ?? {};
   const config = loadConfig();
 
-  if (!quiet) process.stderr.write("Scanning...\n");
-
+  // Notify UI that discovery is starting (shows in scan log instead of silent blank screen)
+  onProgress?.("(discovering tools…)");
   const discovered = await runAllScanners();
   const valid = discovered.filter((d) => d?.name);
   const ignored = new Set((config.settings.ignored_tools ?? []).map((s) => s.toLowerCase()));
