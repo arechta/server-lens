@@ -24,13 +24,14 @@ async function getNvmPathFromShell(env: Record<string, string>): Promise<string 
   return null;
 }
 
-/** Build shell script that sources nvm then runs a command. Uses NVM_SCRIPT_PATH (env) if set, else NVM_DIR, HOME/.nvm, or /usr/local/nvm. */
+/** Build shell script that sources nvm then runs a command. Uses NVM_SCRIPT_PATH (env) if set, else NVM_DIR, HOME/.nvm, or /usr/local/nvm.
+ *  Passes --no-use when sourcing to prevent nvm_auto from calling `nvm use` (which spawns processes). */
 function nvmShellScript(command: string): string {
   return [
-    '[ -n "$NVM_SCRIPT_PATH" ] && [ -f "$NVM_SCRIPT_PATH" ] && . "$NVM_SCRIPT_PATH"',
-    '[ -z "$NVM_SCRIPT_PATH" ] && [ -n "$NVM_DIR" ] && [ -f "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"',
-    '[ -z "$NVM_SCRIPT_PATH" ] && [ -n "$HOME" ] && [ -f "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"',
-    '[ -z "$NVM_SCRIPT_PATH" ] && [ -f /usr/local/nvm/nvm.sh ] && . /usr/local/nvm/nvm.sh',
+    '[ -n "$NVM_SCRIPT_PATH" ] && [ -f "$NVM_SCRIPT_PATH" ] && . "$NVM_SCRIPT_PATH" --no-use',
+    '[ -z "$NVM_SCRIPT_PATH" ] && [ -n "$NVM_DIR" ] && [ -f "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" --no-use',
+    '[ -z "$NVM_SCRIPT_PATH" ] && [ -n "$HOME" ] && [ -f "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" --no-use',
+    '[ -z "$NVM_SCRIPT_PATH" ] && [ -f /usr/local/nvm/nvm.sh ] && . /usr/local/nvm/nvm.sh --no-use',
     "nvm " + command + " 2>/dev/null",
   ].join("; ");
 }
