@@ -79,7 +79,7 @@ function compareTools(a: VersionEntry, b: VersionEntry): number {
  *       "linux-image-generic"           → null  (meta/flavor pointer)
  */
 function kernelPkgVersion(name: string): string | null {
-  const m = /^linux-(?:image|headers|modules(?:-extra)?)-(\d[\d.\-]+\w*)$/i.exec(name);
+  const m = /^linux-(?:image|headers|modules(?:-extra)?)-(\d[\d.\-]+[\w-]*)$/i.exec(name);
   return m ? m[1]! : null;
 }
 

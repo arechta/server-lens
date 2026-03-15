@@ -17,6 +17,7 @@ import {
   getDigestForTagFromDockerHub,
 } from "./container-version";
 import { getGhcrManifestDigest } from "./GhcrProbe";
+import { clearDockerHubTagCache } from "./DockerHubProbe";
 import { resetUserAgent } from "../utils/user-agent";
 
 /** Built-in exec commands for common containers when labels are missing. Config overrides these. */
@@ -181,6 +182,7 @@ export async function enrichWithProbes(
   options?: EnrichOptions
 ): Promise<VersionEntry[]> {
   resetUserAgent(); // new random browser UA per scan to avoid static bot fingerprint
+  clearDockerHubTagCache(); // reset per-scan dedup cache
   const { withNotes = false, onProgress, onProbeComplete, concurrency = 20 } = options ?? {};
   const probeMap = new Map<string, ProbeDefinition>();
   for (const p of config.probes ?? []) {
@@ -193,9 +195,12 @@ export async function enrichWithProbes(
   const autoAptTools = discovered.filter(
     (d) => !probeMap.has(d.name.toLowerCase()) && d.source === "apt" && d.source_key && process.platform === "linux"
   );
-  if (autoAptTools.length > 0) onProgress?.("(collecting apt package data…)");
+  if (autoAptTools.length > 0) onProgress?.("collecting apt packages…");
   const aptBatchMap = autoAptTools.length > 0
-    ? await batchAptProbe(autoAptTools.map((d) => d.source_key!))
+    ? await batchAptProbe(
+        autoAptTools.map((d) => d.source_key!),
+        (count) => onProgress?.(`collecting apt packages (${count} done)`)
+      )
     : new Map<string, import("./probe-types").ProbeResult>();
 
   const tasks = discovered.map((d) => async (): Promise<VersionEntry> => {
@@ -448,7 +453,7 @@ export async function enrichWithProbes(
         let result = await probe.run({
           owner: parsed.owner,
           image: parsed.image,
-          tag_filter: String.raw`^\d+\.\d+\.\d+$`,
+          tag_filter: String.raw`^\d+\.\d+(\.\d+)?$`,
         });
         result = await applyDigestComparison(displayTool, result, d, githubToken);
         return toVersionEntry(displayTool, result, "ghcr", "auto");
@@ -472,7 +477,7 @@ export async function enrichWithProbes(
         }
         let result = await probe.run({
           image: parsed.image,
-          tag_filter: String.raw`^\d+\.\d+\.\d+$`,
+          tag_filter: String.raw`^\d+\.\d+(\.\d+)?$`,
         });
         result = await applyDigestComparison(displayTool, result, d, githubToken);
         return toVersionEntry(displayTool, result, "dockerhub", "auto");

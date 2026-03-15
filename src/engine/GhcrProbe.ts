@@ -1,5 +1,6 @@
 import type { Probe, ProbeArgs, ProbeResult } from "./probe-types";
 import { getRandomUserAgent } from "../utils/user-agent";
+import { debugLog } from "../utils/debug-log";
 
 interface GhcrTokenResponse {
   token?: string;
@@ -286,6 +287,7 @@ export class GhcrProbe implements Probe {
     }
 
     if (!this.token) {
+      debugLog(`GhcrProbe: no token for ${owner}/${image} — add github_token under [auth]`);
       return {
         latest_version: null,
         latest_release_date: null,
@@ -297,6 +299,7 @@ export class GhcrProbe implements Probe {
     }
 
     try {
+      debugLog(`GhcrProbe: requesting GHCR token for ${owner}/${image} (token: ${this.token.slice(0, 8)}…)`);
       const credentials = Buffer.from(`oauth:${this.token}`).toString("base64");
       const tokenRes = await fetch(
         `https://ghcr.io/token?service=ghcr.io&scope=${encodeURIComponent(scope)}`,
@@ -307,15 +310,23 @@ export class GhcrProbe implements Probe {
           },
         }
       );
+      debugLog(`GhcrProbe: token response ${tokenRes.status} for ${owner}/${image}`);
 
       if (!tokenRes.ok) {
+        let hint = `HTTP ${tokenRes.status}`;
+        if (tokenRes.status === 401) {
+          hint = `HTTP 401 — github_token is invalid or expired. Regenerate at github.com/settings/tokens`;
+        } else if (tokenRes.status === 403) {
+          hint = `HTTP 403 — github_token lacks 'read:packages' scope. Add 'read:packages' when creating the token at github.com/settings/tokens`;
+        }
+        debugLog(`GhcrProbe token failed for ${owner}/${image}: ${hint}`);
         return {
           latest_version: null,
           latest_release_date: null,
           repo_url: `https://github.com/${owner}`,
           probe_source: tagsUrl,
           probe_status: "failed",
-          error_message: `Token request failed: HTTP ${tokenRes.status}`,
+          error_message: `Token request failed: ${hint}`,
         };
       }
 

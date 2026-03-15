@@ -61,9 +61,11 @@ export async function runScan(options?: ScanOptions): Promise<{ snapshot: Snapsh
   const { quiet = false, dryRun = false, withNotes = false, onProgress, onProbeComplete } = options ?? {};
   const config = loadConfig();
 
-  if (!quiet) process.stderr.write("Scanning...\n");
-
-  const discovered = await runAllScanners();
+  // Live discovery progress: fires once per scanner as it finishes, showing category + running count
+  onProgress?.("discovering tools…");
+  const discovered = await runAllScanners((category, total) => {
+    onProgress?.(`discovering ${category} (${total} found)`);
+  });
   const valid = discovered.filter((d) => d?.name);
   const ignored = new Set((config.settings.ignored_tools ?? []).map((s) => s.toLowerCase()));
   const filtered = valid.filter((d) => !ignored.has(d.name.toLowerCase()));

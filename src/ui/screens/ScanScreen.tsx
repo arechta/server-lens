@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useStdout } from "ink";
 import { useTheme } from "../theme-context";
 import { ScanProgress } from "../components/ScanProgress";
 
@@ -90,9 +90,18 @@ export function ScanScreen({
   scanLog = [],
 }: ScanScreenProps) {
   const theme = useTheme();
+  const { stdout } = useStdout();
 
   // Skip auto-apt entries (batch lookups, all ~0ms — not useful for timing)
-  const visible = scanLog.filter((e) => e.probeType !== "apt" || e.probeFailed || e.isOutdated);
+  const allVisible = scanLog.filter((e) => e.probeType !== "apt" || e.probeFailed || e.isOutdated);
+
+  // Cap rendered rows to terminal height to prevent Ink cursor-tracking overflow
+  // (once the list exceeds the viewport, cursor math breaks and the screen jumps).
+  // No pre-filling — component grows naturally so the terminal scrollback is preserved.
+  // Fixed rows: outer padding(2) + header box(3) + marginTop(1) + spinner(1) + marginTop(1) = 8
+  const termRows = stdout?.rows ?? 30;
+  const maxLogRows = Math.max(3, termRows - 8);
+  const visible = allVisible.slice(-maxLogRows);
 
   return (
     <Box flexDirection="column" padding={1}>
@@ -102,7 +111,7 @@ export function ScanScreen({
         {dryRun && <Text color={theme.warning}> [dry-run]</Text>}
       </Box>
 
-      {/* Live probe log */}
+      {/* Live probe log — grows naturally, capped at terminal height */}
       {visible.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
           {visible.map((entry, i) => (

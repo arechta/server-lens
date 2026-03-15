@@ -1,7 +1,10 @@
 import type { Probe, ProbeArgs, ProbeResult } from "./probe-types";
 
 /** Run apt-cache policy for multiple packages in a single subprocess call */
-export async function batchAptProbe(packages: string[]): Promise<Map<string, ProbeResult>> {
+export async function batchAptProbe(
+  packages: string[],
+  onProgress?: (count: number) => void
+): Promise<Map<string, ProbeResult>> {
   const results = new Map<string, ProbeResult>();
   if (packages.length === 0 || process.platform !== "linux") {
     for (const pkg of packages) {
@@ -35,6 +38,7 @@ export async function batchAptProbe(packages: string[]): Promise<Map<string, Pro
       parsed.set(name, version && version !== "(none)" ? version : null);
     }
 
+    let count = 0;
     for (const pkg of packages) {
       const version = parsed.get(pkg.toLowerCase()) ?? null;
       results.set(pkg, {
@@ -45,6 +49,7 @@ export async function batchAptProbe(packages: string[]): Promise<Map<string, Pro
         probe_status: version ? "success" : "failed",
         error_message: version ? null : "No candidate version",
       });
+      onProgress?.(++count);
     }
   } catch (e) {
     for (const pkg of packages) {

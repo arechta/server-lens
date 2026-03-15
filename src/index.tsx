@@ -28,6 +28,7 @@ const hasQuiet     = args.includes("--quiet");
 const hasDryRun    = args.includes("--dry-run");
 const hasWithNotes = args.includes("--with-notes");
 const hasNow       = args.includes("--now");
+const hasDebug     = args.includes("--debug");
 
 const categoryIdx  = args.indexOf("--category");
 const categoryName = categoryIdx >= 0 ? args[categoryIdx + 1] : null;
@@ -37,6 +38,17 @@ const outputFile   = outputIdx >= 0 && args[outputIdx + 1] ? args[outputIdx + 1]
 // ─── server-lens scan ────────────────────────────────────────────────────────
 if (subcommand === "scan") {
   const { runScan } = await import("./scanner/run-scan");
+  const { setDebugEnabled, debugLog } = await import("./utils/debug-log");
+
+  if (hasDebug) {
+    setDebugEnabled(true);
+    const cfg = loadConfig();
+    const token = cfg.auth?.github_token;
+    debugLog(`config path: ${cfg.configPath}`);
+    debugLog(`db path: ${cfg.dbPath}`);
+    debugLog(`auth.github_token: ${token ? `present (${token.slice(0, 8)}…${token.slice(-4)}, len=${token.length})` : "NOT SET — add github_token under [auth] in server-lens.toml"}`);
+    debugLog(`probes in config: ${(cfg.probes ?? []).map((p) => p.name).join(", ") || "(none)"}`);
+  }
 
   if (hasQuiet) {
     // Silent mode for cron — no terminal output at all
@@ -67,14 +79,38 @@ if (subcommand === "scan") {
 
   const instance = render(makeEl());
 
+  // Throttle rerenders to at most once per 80ms so fast-completing probes (e.g. apt
+  // batch Map lookups that all resolve in the same tick) are visible as a live
+  // incrementing counter rather than jumping straight to the final number.
+  // The natural-height ScanScreen grows one line per entry.
+  const THROTTLE_MS = 80;
+  let _lastRender = 0;
+  let _pending: ReturnType<typeof setTimeout> | null = null;
+  function scheduleRerender() {
+    if (_pending) return; // already scheduled for next window
+    const now = Date.now();
+    const wait = THROTTLE_MS - (now - _lastRender);
+    if (wait <= 0) {
+      _lastRender = now;
+      instance.rerender(makeEl());
+    } else {
+      _pending = setTimeout(() => {
+        _pending = null;
+        _lastRender = Date.now();
+        instance.rerender(makeEl());
+      }, wait);
+    }
+  }
+
   try {
     await runScan({
       dryRun: hasDryRun,
       withNotes: hasWithNotes,
       onProgress: (name: string) => {
         currentProbe = name;
-        probedCount++;
-        instance.rerender(makeEl());
+        // Phase messages (discovery/apt) carry their own "(N done)" count — don't double-count
+        if (!name.includes(" found)") && !name.includes(" done)") && !name.endsWith("…")) probedCount++;
+        scheduleRerender();
       },
       onProbeComplete: (entry, durationMs) => {
         scanLog.push({
@@ -87,7 +123,7 @@ if (subcommand === "scan") {
           updateType: entry.update_type,
           durationMs,
         });
-        instance.rerender(makeEl());
+        scheduleRerender();
       },
     });
     scanPhase = "done";

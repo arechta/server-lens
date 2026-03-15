@@ -37,25 +37,32 @@ const SCANNERS = [
   new BinaryScanner(),
 ];
 
-export async function runAllScanners(): Promise<DiscoveredTool[]> {
-  const results = await Promise.all(SCANNERS.map((s) => s.scan()));
-
+export async function runAllScanners(
+  onDiscover?: (category: string, totalSoFar: number) => void
+): Promise<DiscoveredTool[]> {
   const byName = new Map<string, DiscoveredTool>();
-  for (const tools of results) {
-    for (const t of tools) {
-      if (!t?.name) continue;
+  let totalDiscovered = 0;
+
+  await Promise.all(SCANNERS.map(async (s) => {
+    const tools = await s.scan();
+    const valid = tools.filter((t) => t?.name);
+    for (const t of valid) {
       const existing = byName.get(t.name);
       if (!existing) {
         byName.set(t.name, t);
-        continue;
-      }
-      if (t.name === "node") {
+      } else if (t.name === "node") {
         const a = NODE_SOURCE_PRIORITY[existing.source] ?? -1;
         const b = NODE_SOURCE_PRIORITY[t.source] ?? -1;
         if (b > a) byName.set(t.name, t);
       }
     }
-  }
+    if (valid.length > 0 && onDiscover) {
+      totalDiscovered += valid.length;
+      const cats = [...new Set(valid.map((t) => t.category))];
+      const label = cats.length === 1 ? cats[0]! : "tools";
+      onDiscover(label, totalDiscovered);
+    }
+  }));
 
   return Array.from(byName.values());
 }
