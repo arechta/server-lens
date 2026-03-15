@@ -3,12 +3,83 @@ import { Box, Text } from "ink";
 import { useTheme } from "../theme-context";
 import { ScanProgress } from "../components/ScanProgress";
 
+export interface ScanLogEntry {
+  name: string;
+  probeType: string | null;
+  currentVersion: string | null;
+  latestVersion: string | null;
+  isOutdated: boolean;
+  probeFailed: boolean;
+  updateType: string | null;
+  durationMs: number;
+}
+
 interface ScanScreenProps {
   phase: "scanning" | "done" | "error";
   currentTool: string;
   totalProbed: number;
   dryRun?: boolean;
   errorMsg?: string;
+  /** Live log of completed probes — shown as they stream in */
+  scanLog?: ScanLogEntry[];
+}
+
+const MAX_LOG_ROWS = 16;
+
+function truncpad(s: string | null | undefined, len: number): string {
+  if (!s) return " ".repeat(len);
+  if (s.length > len) return s.slice(0, len - 1) + "…";
+  return s.padEnd(len);
+}
+
+function ScanLogRow({ entry }: { entry: ScanLogEntry }) {
+  const theme = useTheme();
+
+  const sym     = entry.probeFailed ? "✗" : "✓";
+  const symColor = entry.probeFailed ? theme.error : theme.success;
+  const name    = truncpad(entry.name, 22);
+  const probe   = truncpad(entry.probeType, 10);
+
+  const ms = entry.durationMs;
+  const timeColor = ms >= 10_000 ? theme.error
+    : ms >= 2_000 ? theme.warning
+    : theme.muted;
+  const timeStr = ms >= 1_000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+
+  let verPart: React.ReactNode;
+  if (entry.probeFailed) {
+    verPart = <Text color={theme.muted}>{"probe failed".padEnd(28)}</Text>;
+  } else if (entry.isOutdated) {
+    const cur = truncpad(entry.currentVersion, 10);
+    const lat = truncpad(entry.latestVersion, 10);
+    const upd = (entry.updateType ?? "").padEnd(7);
+    verPart = (
+      <>
+        <Text>{cur}</Text>
+        <Text color={theme.warning}> → </Text>
+        <Text>{lat}</Text>
+        <Text color={theme.warning}>  {upd}</Text>
+      </>
+    );
+  } else {
+    const ver = truncpad(entry.currentVersion ?? entry.latestVersion, 10);
+    verPart = (
+      <>
+        <Text>{ver}</Text>
+        <Text color={theme.success}>   ✓       </Text>
+      </>
+    );
+  }
+
+  return (
+    <Box>
+      <Text color={symColor}>{sym}  </Text>
+      <Text>{name}  </Text>
+      {verPart}
+      <Text color={theme.muted}>  {probe}  </Text>
+      <Text color={timeColor}>{timeStr}</Text>
+    </Box>
+  );
 }
 
 export function ScanScreen({
@@ -17,8 +88,14 @@ export function ScanScreen({
   totalProbed,
   dryRun = false,
   errorMsg,
+  scanLog = [],
 }: ScanScreenProps) {
   const theme = useTheme();
+
+  // Show the most recent MAX_LOG_ROWS entries; skip auto-apt (they're batch, all ~0ms)
+  const visible = scanLog
+    .filter((e) => e.probeType !== "apt" || e.probeFailed || e.isOutdated)
+    .slice(-MAX_LOG_ROWS);
 
   return (
     <Box flexDirection="column" padding={1}>
@@ -27,6 +104,15 @@ export function ScanScreen({
         <Text color={theme.heading} bold>server-lens scan</Text>
         {dryRun && <Text color={theme.warning}> [dry-run]</Text>}
       </Box>
+
+      {/* Live probe log */}
+      {visible.length > 0 && (
+        <Box flexDirection="column" marginTop={1}>
+          {visible.map((entry, i) => (
+            <ScanLogRow key={`${entry.name}-${i}`} entry={entry} />
+          ))}
+        </Box>
+      )}
 
       <Box marginTop={1}>
         <ScanProgress
