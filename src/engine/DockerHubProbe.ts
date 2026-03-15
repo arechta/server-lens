@@ -1,5 +1,17 @@
 import type { Probe, ProbeArgs, ProbeResult } from "./probe-types";
 import { getRandomUserAgent } from "../utils/user-agent";
+import { debugLog } from "../utils/debug-log";
+
+/**
+ * Per-scan in-flight cache: if multiple containers use the same image (e.g. 9 redis pools),
+ * only one fetch is made — the rest wait on the same Promise and reuse the result.
+ */
+const _tagFetchCache = new Map<string, Promise<DockerHubTag[] | string>>();
+
+/** Call between scans to prevent stale cache across multiple scan runs. */
+export function clearDockerHubTagCache(): void {
+  _tagFetchCache.clear();
+}
 
 interface DockerHubTag {
   name: string;
@@ -61,30 +73,41 @@ export class DockerHubProbe implements Probe {
     const url = `https://hub.docker.com/v2/repositories/${namespace}/${repository}/tags?page_size=100`;
 
     try {
-      const allTags: DockerHubTag[] = [];
-      let next: string | null = url;
-
-      const ua = getRandomUserAgent();
-      while (next) {
-        const res = await fetch(next, { headers: { "User-Agent": ua } });
-        if (!res.ok) {
-          return {
-            latest_version: null,
-            latest_release_date: null,
-            repo_url: `https://hub.docker.com/r/${image}`,
-            probe_source: url,
-            probe_status: "failed",
-            error_message: `HTTP ${res.status}`,
-          };
-        }
-
-        const data = (await res.json()) as DockerHubResponse;
-        allTags.push(...(data.results ?? []));
-        next = data.next ?? null;
+      // Deduplicate concurrent fetches for the same image (e.g. 9 redis pool containers)
+      if (!_tagFetchCache.has(url)) {
+        debugLog(`DockerHubProbe: fetching tags for ${image}`);
+        const ua = getRandomUserAgent();
+        const fetchPromise: Promise<DockerHubTag[] | string> = (async () => {
+          const allTags: DockerHubTag[] = [];
+          let next: string | null = url;
+          while (next) {
+            const res = await fetch(next, { headers: { "User-Agent": ua } });
+            debugLog(`DockerHubProbe: ${res.status} ${next}`);
+            if (!res.ok) return `HTTP ${res.status}`;
+            const data = (await res.json()) as DockerHubResponse;
+            allTags.push(...(data.results ?? []));
+            next = data.next ?? null;
+          }
+          return allTags;
+        })();
+        _tagFetchCache.set(url, fetchPromise);
       }
 
-      const latest = findLatestVersionTag(allTags, tagFilter);
+      const tagsOrError = await _tagFetchCache.get(url)!;
+      if (typeof tagsOrError === "string") {
+        return {
+          latest_version: null,
+          latest_release_date: null,
+          repo_url: `https://hub.docker.com/r/${image}`,
+          probe_source: url,
+          probe_status: "failed",
+          error_message: tagsOrError,
+        };
+      }
+
+      const latest = findLatestVersionTag(tagsOrError, tagFilter);
       if (!latest) {
+        debugLog(`DockerHubProbe: no matching tag for ${image} with filter=${tagFilter}`);
         return {
           latest_version: null,
           latest_release_date: null,
