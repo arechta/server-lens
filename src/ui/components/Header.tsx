@@ -7,8 +7,60 @@ import type { SnapshotSummary } from "../../schema/types";
 /** Logo area: visual 1:1 aspect-square. Height must fit Recent scans (title + 5 rows) + Summary. */
 const LOGO_HEIGHT_LINES = 18;
 const LOGO_WIDTH_CHARS = LOGO_HEIGHT_LINES * 2;
+const APP_NAME = "server-lens";
 const MAINTAINER = "arechta.dev <Asphira Andreas>";
 const SUMMARY_NAME_WIDTH = 12;
+
+/**
+ * Box with a mixed-color title in the top border, Claude Code style:
+ *   ┌─ server-lens v0.1.0 ─────────────┐
+ *   │                                   │
+ *   └───────────────────────────────────┘
+ *
+ * Ink v4 has no native borderLabel — we draw the top line manually as Text,
+ * then use borderTop={false} on the Box so borders connect seamlessly.
+ */
+function LogoBox({
+  version,
+  theme,
+  children,
+}: {
+  version: string;
+  theme: ReturnType<typeof useTheme>;
+  children: React.ReactNode;
+}) {
+  // ┌─ <APP_NAME> <version> ─...─┐
+  // Fixed chars: ┌(1) + ─·(2) + name + ·version·(2+ver.len) + ┐(1)
+  const titleFixed = 1 + 2 + APP_NAME.length + 1 + version.length + 1 + 1;
+  const trailingDashes = "─".repeat(Math.max(0, LOGO_WIDTH_CHARS - titleFixed));
+
+  return (
+    <Box flexDirection="column" width={LOGO_WIDTH_CHARS} minWidth={LOGO_WIDTH_CHARS}>
+      {/* Manual top border — mixed accent + muted colors */}
+      <Text>
+        <Text color={theme.accent}>{"┌─ "}</Text>
+        <Text color={theme.accent} bold>{APP_NAME}</Text>
+        <Text color={theme.muted}>{` ${version} `}</Text>
+        <Text color={theme.accent}>{trailingDashes}{"┐"}</Text>
+      </Text>
+      {/* Body: borderTop=false so left/right/bottom connect to the manual line above */}
+      <Box
+        width={LOGO_WIDTH_CHARS}
+        height={LOGO_HEIGHT_LINES - 1}
+        borderStyle="single"
+        borderTop={false}
+        borderColor={theme.accent}
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        paddingX={0}
+        paddingY={0}
+      >
+        {children}
+      </Box>
+    </Box>
+  );
+}
 
 export interface RecentScanItem {
   id: number;
@@ -51,22 +103,10 @@ export function Header({
 
   return (
     <Box flexDirection="row" paddingX={0} paddingY={0} gap={1}>
-      {/* Left: logo = visual square (28×14), rowspan 2 */}
-      <Box
-        width={LOGO_WIDTH_CHARS}
-        minWidth={LOGO_WIDTH_CHARS}
-        height={LOGO_HEIGHT_LINES}
-        minHeight={LOGO_HEIGHT_LINES}
-        flexDirection="column"
-        justifyContent="center"
-        alignItems="center"
-        borderStyle="single"
-        borderColor={theme.accent}
-        paddingX={0}
-        paddingY={0}
-      >
+      {/* Left: logo box with mixed-color title in border */}
+      <LogoBox version={version} theme={theme}>
         <Text color={theme.muted} dimColor>◼</Text>
-      </Box>
+      </LogoBox>
       {/* Right: 2 rows, fixed height so it matches logo — both align, logo stays square */}
       <Box flexDirection="column" flexGrow={0} height={LOGO_HEIGHT_LINES} minHeight={LOGO_HEIGHT_LINES}>
         {/* Row 1: Recent scans */}
