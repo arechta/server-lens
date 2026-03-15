@@ -16,6 +16,7 @@ import { getToolByName } from "./db/tools-repo";
 import { getTheme } from "./ui/theme";
 import type { SnapshotSummary, VersionEntry } from "./schema/types";
 import type { AlertItem } from "./ui/components/AlertBar";
+import type { ScanLogEntry } from "./ui/screens/ScanScreen";
 import { existsSync } from "fs";
 import { parseExpression } from "cron-parser";
 
@@ -27,7 +28,6 @@ const hasQuiet     = args.includes("--quiet");
 const hasDryRun    = args.includes("--dry-run");
 const hasWithNotes = args.includes("--with-notes");
 const hasNow       = args.includes("--now");
-const hasVerbose   = args.includes("--verbose") || args.includes("-v");
 
 const categoryIdx  = args.indexOf("--category");
 const categoryName = categoryIdx >= 0 ? args[categoryIdx + 1] : null;
@@ -44,107 +44,13 @@ if (subcommand === "scan") {
     process.exit(0);
   }
 
-  // ── Verbose mode: stream each probe result to stdout ─────────────────────
-  if (hasVerbose) {
-    const R  = "\x1b[0m";
-    const DIM  = "\x1b[2m";
-    const BOLD = "\x1b[1m";
-    const GREEN = "\x1b[32m";
-    const RED   = "\x1b[31m";
-    const AMBER = "\x1b[33m";
-    const BLUE  = "\x1b[34m";
-    const CYAN  = "\x1b[36m";
-
-    function fmtMs(ms: number): string {
-      if (ms >= 10_000) return `${RED}${(ms / 1000).toFixed(1)}s${R}`;
-      if (ms >= 2_000)  return `${AMBER}${(ms / 1000).toFixed(1)}s${R}`;
-      if (ms >= 1_000)  return `${(ms / 1000).toFixed(1)}s`;
-      return `${DIM}${ms}ms${R}`;
-    }
-
-    function truncpad(s: string | null, len: number): string {
-      if (!s) return " ".repeat(len);
-      if (s.length > len) return s.slice(0, len - 1) + "…";
-      return s.padEnd(len);
-    }
-
-    const scanT0 = performance.now();
-    // Header
-    const TITLE = " server-lens scan ";
-    const LINE  = "─".repeat(Math.max(0, 60 - TITLE.length));
-    process.stdout.write(`\n${BOLD}${BLUE}┌─${TITLE}${LINE}┐${R}\n\n`);
-
-    let totalProbed = 0;
-
-    try {
-      const { snapshot } = await runScan({
-        dryRun: hasDryRun,
-        withNotes: hasWithNotes,
-        onBatchAptComplete: (count, ms) => {
-          if (count > 0) {
-            process.stdout.write(
-              `  ${GREEN}✓${R}  ${truncpad(`[apt batch]`, 22)}` +
-              `  ${DIM}${count} packages${R}${"".padEnd(14)}` +
-              `  ${DIM}apt${R.padEnd(0)}${"".padEnd(9)}` +
-              `  ${fmtMs(ms)}\n`
-            );
-          }
-        },
-        onProbeComplete: (entry, ms) => {
-          totalProbed++;
-          // Skip auto-apt packages individually — they're covered by the batch line
-          if (entry.probe_type === "apt" && entry.tool_status === "auto") return;
-
-          const name = truncpad(entry.display_name ?? entry.name, 22);
-          const probe = truncpad(entry.probe_type ?? "—", 10);
-
-          let vStr: string;
-          if (entry.probe_status === "failed") {
-            vStr = `${DIM}probe failed${R}                    `;
-          } else if (entry.is_outdated) {
-            const cur = truncpad(entry.current_version, 10);
-            const lat = truncpad(entry.latest_version, 10);
-            const upd = (entry.update_type ?? "").padEnd(7);
-            vStr = `${cur} ${AMBER}→${R} ${lat}  ${AMBER}${upd}${R}`;
-          } else {
-            const ver = truncpad(entry.current_version ?? entry.latest_version, 10);
-            vStr = `${ver}   ${GREEN}✓${R}       `;
-          }
-
-          const sym = entry.probe_status === "failed"
-            ? `${RED}✗${R}`
-            : `${GREEN}✓${R}`;
-
-          process.stdout.write(`  ${sym}  ${name}  ${vStr}  ${DIM}${probe}${R}  ${fmtMs(ms)}\n`);
-        },
-      });
-
-      const elapsed = Math.round(performance.now() - scanT0);
-      const { total, outdated } = snapshot.summary;
-      process.stdout.write(
-        `\n${BOLD}${BLUE}■${R}  ${BOLD}${CYAN}Done${R}` +
-        `  ${DIM}·${R}  ${total} tools` +
-        `  ${DIM}·${R}  ${outdated > 0 ? `${AMBER}${outdated} outdated${R}` : `${GREEN}0 outdated${R}`}` +
-        `  ${DIM}·${R}  ${fmtMs(elapsed)}\n\n`
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`\n${RED}✗  scan failed: ${msg}${R}\n`);
-      process.exit(1);
-    }
-
-    if (!hasNow) {
-      if (!hasDryRun) console.log("Scan complete. Run 'server-lens' to view results.");
-      process.exit(0);
-    }
-    // --now: fall through to display mode below
-  } else {
-  // ── Standard mode: Ink ScanScreen with minimal progress ──────────────────
+  // Interactive: render Ink ScanScreen with live probe log
   const config = loadConfig();
   let currentProbe = "";
   let probedCount = 0;
   let scanPhase: "scanning" | "done" | "error" = "scanning";
   let scanErr = "";
+  const scanLog: ScanLogEntry[] = [];
 
   const makeEl = () =>
     React.createElement(App, {
@@ -154,6 +60,7 @@ if (subcommand === "scan") {
       scanTotalProbed: probedCount,
       scanDryRun: hasDryRun,
       scanErrorMsg: scanErr,
+      scanLog: [...scanLog],
       themeName: config.theme?.name ?? "claude",
       themeTokens: config.theme as Record<string, string | undefined> | undefined,
     });
@@ -167,6 +74,19 @@ if (subcommand === "scan") {
       onProgress: (name: string) => {
         currentProbe = name;
         probedCount++;
+        instance.rerender(makeEl());
+      },
+      onProbeComplete: (entry, durationMs) => {
+        scanLog.push({
+          name: entry.display_name ?? entry.name,
+          probeType: entry.probe_type,
+          currentVersion: entry.current_version,
+          latestVersion: entry.latest_version,
+          isOutdated: entry.is_outdated,
+          probeFailed: entry.probe_status === "failed",
+          updateType: entry.update_type,
+          durationMs,
+        });
         instance.rerender(makeEl());
       },
     });
@@ -189,7 +109,6 @@ if (subcommand === "scan") {
     process.exit(0);
   }
   // --now: fall through to display mode below
-  } // end standard mode
 }
 
 // ─── server-lens install ─────────────────────────────────────────────────────

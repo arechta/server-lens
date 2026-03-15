@@ -7,6 +7,7 @@ import { StatusScreen } from "./screens/StatusScreen";
 import { EventsScreen } from "./screens/EventsScreen";
 import { NotesScreen } from "./screens/NotesScreen";
 import { ScanScreen } from "./screens/ScanScreen";
+import type { ScanLogEntry } from "./screens/ScanScreen";
 import type { SnapshotSummary, VersionEntry } from "../schema/types";
 import type { AlertItem } from "./components/AlertBar";
 import type { StatusData } from "./screens/StatusScreen";
@@ -37,6 +38,7 @@ interface AppProps {
   scanTotalProbed?: number;
   scanDryRun?: boolean;
   scanErrorMsg?: string;
+  scanLog?: ScanLogEntry[];
   // theme
   themeName?: string;
   themeTokens?: Record<string, string | undefined>;
@@ -60,6 +62,7 @@ export function App({
   scanTotalProbed = 0,
   scanDryRun = false,
   scanErrorMsg,
+  scanLog = [],
   themeName = "claude",
   themeTokens,
 }: AppProps) {
@@ -92,6 +95,7 @@ export function App({
             totalProbed={scanTotalProbed}
             dryRun={scanDryRun}
             errorMsg={scanErrorMsg}
+            scanLog={scanLog}
           />
         )}
       </Box>
