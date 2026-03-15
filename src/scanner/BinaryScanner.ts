@@ -7,6 +7,10 @@ const BINARY_DIR = "/usr/local/bin";
 const SKIP_NAMES = new Set([
   "node", "npm", "npx", "pnpm", "bun", "nvm",
   "docker", "docker-compose", "systemctl", "snap", "apt", "apt-get", "dpkg",
+  // PulseAudio / ALSA tools — libpulse init tries to connect to the daemon
+  // (triggers SSH-forwarded audio connections as a side effect)
+  "paplay", "pacat", "parec", "pactl", "pacmd", "pasuspender",
+  "pulseaudio", "aplay", "arecord", "amixer", "alsamixer",
 ]);
 
 async function getVersion(binary: string): Promise<string | null> {
