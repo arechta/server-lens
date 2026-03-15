@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useStdout } from "ink";
 import { useTheme } from "../theme-context";
 import { ScanProgress } from "../components/ScanProgress";
 
@@ -90,9 +90,18 @@ export function ScanScreen({
   scanLog = [],
 }: ScanScreenProps) {
   const theme = useTheme();
+  const { stdout } = useStdout();
 
   // Skip auto-apt entries (batch lookups, all ~0ms — not useful for timing)
-  const visible = scanLog.filter((e) => e.probeType !== "apt" || e.probeFailed || e.isOutdated);
+  const allVisible = scanLog.filter((e) => e.probeType !== "apt" || e.probeFailed || e.isOutdated);
+
+  // Cap rendered rows to terminal height so Ink always knows how many lines to erase on rerender.
+  // Without this cap, once the list grows beyond the terminal viewport Ink loses cursor position
+  // and the whole screen jumps/duplicates. Shows the most recent entries (tail-f behaviour).
+  // header box(3) + marginTop(1) + spinner row(1) + padding(2) = 7 fixed rows
+  const termRows = stdout?.rows ?? 30;
+  const maxLogRows = Math.max(3, termRows - 7);
+  const visible = allVisible.slice(-maxLogRows);
 
   return (
     <Box flexDirection="column" padding={1}>
