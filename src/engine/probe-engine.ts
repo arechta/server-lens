@@ -195,9 +195,12 @@ export async function enrichWithProbes(
   const autoAptTools = discovered.filter(
     (d) => !probeMap.has(d.name.toLowerCase()) && d.source === "apt" && d.source_key && process.platform === "linux"
   );
-  if (autoAptTools.length > 0) onProgress?.("(collecting apt package data…)");
+  if (autoAptTools.length > 0) onProgress?.("collecting apt packages…");
   const aptBatchMap = autoAptTools.length > 0
-    ? await batchAptProbe(autoAptTools.map((d) => d.source_key!))
+    ? await batchAptProbe(
+        autoAptTools.map((d) => d.source_key!),
+        (count) => onProgress?.(`collecting apt packages (${count} done)`)
+      )
     : new Map<string, import("./probe-types").ProbeResult>();
 
   const tasks = discovered.map((d) => async (): Promise<VersionEntry> => {
