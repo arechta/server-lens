@@ -150,6 +150,8 @@ function toVersionEntry(
 export interface EnrichOptions {
   withNotes?: boolean;
   onProgress?: (toolName: string) => void;
+  /** Called after each probe completes with the result and elapsed ms */
+  onProbeComplete?: (entry: VersionEntry, durationMs: number) => void;
   /** Max concurrent probe calls — default 20 */
   concurrency?: number;
 }
@@ -179,7 +181,7 @@ export async function enrichWithProbes(
   options?: EnrichOptions
 ): Promise<VersionEntry[]> {
   resetUserAgent(); // new random browser UA per scan to avoid static bot fingerprint
-  const { withNotes = false, onProgress, concurrency = 20 } = options ?? {};
+  const { withNotes = false, onProgress, onProbeComplete, concurrency = 20 } = options ?? {};
   const probeMap = new Map<string, ProbeDefinition>();
   for (const p of config.probes ?? []) {
     probeMap.set(p.name.toLowerCase(), p);
@@ -197,6 +199,8 @@ export async function enrichWithProbes(
 
   const tasks = discovered.map((d) => async (): Promise<VersionEntry> => {
     onProgress?.(d.name);
+    const _t0 = performance.now();
+    const _entry = await (async (): Promise<VersionEntry> => {
 
     // Resolve container current version (labels → exec → digest) for ALL containers so "latest" tag becomes digest or real version
     let containerDisplay = d;
@@ -521,6 +525,9 @@ export async function enrichWithProbes(
         "untracked"
       );
     }
+    })(); // end probe IIFE
+    onProbeComplete?.(_entry, Math.round(performance.now() - _t0));
+    return _entry;
   });
 
   return runConcurrent(tasks, concurrency);

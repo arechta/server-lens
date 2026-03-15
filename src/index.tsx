@@ -16,6 +16,7 @@ import { getToolByName } from "./db/tools-repo";
 import { getTheme } from "./ui/theme";
 import type { SnapshotSummary, VersionEntry } from "./schema/types";
 import type { AlertItem } from "./ui/components/AlertBar";
+import type { ScanLogEntry } from "./ui/screens/ScanScreen";
 import { existsSync } from "fs";
 import { parseExpression } from "cron-parser";
 
@@ -43,13 +44,13 @@ if (subcommand === "scan") {
     process.exit(0);
   }
 
-  // Interactive: render Ink ScanScreen with live progress
+  // Interactive: render Ink ScanScreen with live probe log
   const config = loadConfig();
-  const themeObj = getTheme(config.theme?.name ?? "claude", config.theme as Record<string, string | undefined> | undefined);
   let currentProbe = "";
   let probedCount = 0;
   let scanPhase: "scanning" | "done" | "error" = "scanning";
   let scanErr = "";
+  const scanLog: ScanLogEntry[] = [];
 
   const makeEl = () =>
     React.createElement(App, {
@@ -59,6 +60,7 @@ if (subcommand === "scan") {
       scanTotalProbed: probedCount,
       scanDryRun: hasDryRun,
       scanErrorMsg: scanErr,
+      scanLog: [...scanLog],
       themeName: config.theme?.name ?? "claude",
       themeTokens: config.theme as Record<string, string | undefined> | undefined,
     });
@@ -72,6 +74,19 @@ if (subcommand === "scan") {
       onProgress: (name: string) => {
         currentProbe = name;
         probedCount++;
+        instance.rerender(makeEl());
+      },
+      onProbeComplete: (entry, durationMs) => {
+        scanLog.push({
+          name: entry.display_name ?? entry.name,
+          probeType: entry.probe_type,
+          currentVersion: entry.current_version,
+          latestVersion: entry.latest_version,
+          isOutdated: entry.is_outdated,
+          probeFailed: entry.probe_status === "failed",
+          updateType: entry.update_type,
+          durationMs,
+        });
         instance.rerender(makeEl());
       },
     });
