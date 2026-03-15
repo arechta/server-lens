@@ -1,0 +1,40 @@
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: postgres
+    restart: always
+    ports:
+      - "0.0.0.0:${PORT}:5432" # Visible to all network interfaces in same VPC
+    env_file:
+      - .env
+    volumes:
+      # BIND MOUNT 1: Persistent data storage
+      - ./data:/var/lib/postgresql/data
+      # BIND MOUNT 2: Configuration file accessible at container root
+      - ./config.json:/config.json:ro
+      # BIND MOUNT 3: Script in its new directory
+      - ./post-script/init-multiple-dbs.sh:/usr/local/bin/init-dbs.sh:ro
+
+    # We will use 'entrypoint' to set up the sequence instead of 'command'
+    entrypoint:
+      - sh
+      - -c
+      - |
+        # 1. Start the main PostgreSQL process in the background.
+        /usr/local/bin/docker-entrypoint.sh postgres &
+
+        # 2. Run our initialization script. The script's "until pg_isready" 
+        #    will now successfully connect to the background server.
+        /usr/local/bin/init-dbs.sh
+
+        # 3. Wait for the background process (the postgres server) to finish.
+        wait $!
+
+    networks:
+      - database-network
+
+networks:
+  database-network:
+    driver: bridge

@@ -1,0 +1,25 @@
+services:
+  opengist:
+    image: ghcr.io/thomiceli/opengist:1.12
+    container_name: opengist
+    restart: unless-stopped
+    ports:
+      - "${OG_HTTP_PORT:-6157}:6157"   # HTTP
+    volumes:
+      - /var/www/docker/opengist/data:/opengist
+    environment:
+      # -- Database --
+      OG_DB_URI: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@host.docker.internal:${POSTGRES_PORT}/${POSTGRES_DB}
+
+      # -- App --
+      OG_EXTERNAL_URL: ${OG_EXTERNAL_URL}
+      OG_SECRET_KEY: ${OG_SECRET_KEY}
+      OG_LOG_LEVEL: ${OG_LOG_LEVEL:-info}
+
+      # -- GitHub OAuth --
+      OG_GITHUB_CLIENT_KEY: ${OG_GITHUB_CLIENT_KEY}
+      OG_GITHUB_SECRET: ${OG_GITHUB_SECRET}
+
+    # Required on Linux for host.docker.internal to resolve to the host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

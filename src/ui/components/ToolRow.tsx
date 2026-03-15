@@ -53,7 +53,7 @@ export function ToolRow({ tool, compact = false }: ToolRowProps) {
 
   return (
     <Box>
-      <Text>{truncate(tool.name, 20)}</Text>
+      <Text>{truncate(tool.display_name ?? tool.name, 20)}</Text>
       <Text> {truncate(tool.current_version, 10)}</Text>
       <Text color={color}> {symbol} </Text>
       <Text>{truncate(tool.latest_version, 10)}</Text>

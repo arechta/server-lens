@@ -10,7 +10,7 @@ import { render } from "ink";
 import { App } from "./ui/App";
 import { loadConfig } from "./config/config-loader";
 import { getDatabase } from "./db/database";
-import { getLatestSnapshot } from "./db/snapshots-repo";
+import { getLatestSnapshot, getSnapshotList } from "./db/snapshots-repo";
 import { getEvents } from "./db/events-repo";
 import { getToolByName } from "./db/tools-repo";
 import { getTheme } from "./ui/theme";
@@ -30,6 +30,8 @@ const hasNow       = args.includes("--now");
 
 const categoryIdx  = args.indexOf("--category");
 const categoryName = categoryIdx >= 0 ? args[categoryIdx + 1] : null;
+const outputIdx    = args.indexOf("--output");
+const outputFile   = outputIdx >= 0 && args[outputIdx + 1] ? args[outputIdx + 1] : null;
 
 // ─── server-lens scan ────────────────────────────────────────────────────────
 if (subcommand === "scan") {
@@ -257,16 +259,24 @@ function loadSnapshotData(): {
   return { snapshot: getLatestSnapshot(db), config };
 }
 
-function getToolsForDisplay(snapshot: SnapshotSummary | null): VersionEntry[] {
+function getToolsForDisplay(
+  snapshot: SnapshotSummary | null,
+  hiddenCategories: string[] = []
+): VersionEntry[] {
   if (!snapshot) return [];
   let tools = snapshot.tools;
+  if (hiddenCategories.length > 0) {
+    const hidden = new Set(hiddenCategories.map((c) => c.toLowerCase()));
+    tools = tools.filter((t) => !hidden.has(t.category.toLowerCase()));
+  }
   if (hasOutdated) tools = tools.filter((t) => t.is_outdated);
   if (categoryName) tools = tools.filter((t) => t.category === categoryName);
   return tools;
 }
 
-// --json: output JSON from DB
+// --json: output JSON from DB (--output file avoids pipe truncation on large payloads)
 if (hasJson) {
+  const { writeFileSync } = await import("fs");
   const { snapshot } = loadSnapshotData();
   let output: SnapshotSummary = snapshot ?? {
     schema_version: "1",
@@ -288,17 +298,51 @@ if (hasJson) {
     if (categoryName) tools = tools.filter((t) => t.category === categoryName);
     output = { ...output, tools };
   }
-  console.log(JSON.stringify(output, null, 2));
+  const json = JSON.stringify(output, null, 2);
+  if (outputFile) {
+    writeFileSync(outputFile, json, "utf-8");
+  } else {
+    console.log(json);
+  }
   process.exit(0);
 }
 
 // Display mode — read snapshot, render TUI
 const { snapshot, config } = loadSnapshotData();
-const tools = getToolsForDisplay(snapshot);
+const tools = getToolsForDisplay(
+  snapshot,
+  config.settings.hidden_categories ?? []
+);
 
-// Load system alerts for AlertBar
+/** Build human-readable reason/details from system event payload (data_json). */
+function systemEventMessage(event: string, dataJson: string): string | undefined {
+  try {
+    const d = JSON.parse(dataJson || "{}") as Record<string, unknown>;
+    if (event === "system.reboot_required") {
+      const reason = d.reason as string | undefined;
+      const label = reason === "kernel_update" ? "kernel update pending"
+        : reason === "package_update" ? "package update pending" : "pending";
+      return `reboot required — ${label}`;
+    }
+    if (event === "system.service_degraded") {
+      const name = (d.name as string) ?? "unknown";
+      const category = (d.category as string) ?? "";
+      const state = (d.state as string) ?? "";
+      return `${category}: ${name} (${state})`;
+    }
+    if (event === "system.disk_warning") {
+      const mount = (d.mount_point as string) ?? "?";
+      const pct = (d.used_pct as number) ?? 0;
+      return `${mount} — ${pct}% used`;
+    }
+  } catch { /* ignore */ }
+  return undefined;
+}
+
+// Load system alerts and recent scans for dashboard
 let systemAlerts: AlertItem[] = [];
-if (snapshot && existsSync(config.dbPath)) {
+let recentScans: Array<{ id: number; scanned_at: string; hostname: string; total_tools: number }> = [];
+if (existsSync(config.dbPath)) {
   try {
     const db = getDatabase(config.dbPath);
     const alertRows = getEvents(db, { eventPrefix: "system.", limit: 10 });
@@ -306,6 +350,14 @@ if (snapshot && existsSync(config.dbPath)) {
       id: e.id,
       event: e.event,
       timestamp: e.timestamp,
+      message: systemEventMessage(e.event, e.data_json),
+    }));
+    const list = getSnapshotList(db, 5);
+    recentScans = list.map((s) => ({
+      id: s.id,
+      scanned_at: s.scanned_at,
+      hostname: s.hostname,
+      total_tools: s.total_tools,
     }));
   } catch {/* ignore */}
 }
@@ -318,6 +370,7 @@ render(
     filterOutdated: hasOutdated,
     filterCategory: categoryName,
     systemAlerts,
+    recentScans,
     themeName: config.theme?.name ?? "claude",
     themeTokens: config.theme as Record<string, string | undefined> | undefined,
   })

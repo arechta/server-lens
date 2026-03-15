@@ -6,6 +6,7 @@ scan_schedule              = "0 */6 * * *"
 scan_timeout_seconds       = 30
 disk_warning_threshold_pct = 20
 ignored_tools              = []
+hidden_categories          = ["tools", "systemd"]   # Hide categories in TUI (data still in DB and --json)
 
 [mcp]
 enabled = true
@@ -19,7 +20,7 @@ port  = 7845
 name = "claude"
 
 [auth]
-# github_token = "ghp_xxxx"
+github_token = "ghp_xxx"   # Required for GHCR container probes (outline, opengist, etc.) so latest_version is filled
 
 [webhooks]
 # "tool.discovered"    = "https://n8n.example.com/webhook/server-lens"
@@ -55,19 +56,141 @@ repo_url   = "https://www.npmjs.com/package/pnpm"
 args.package = "pnpm"
 
 # Container images — add when Docker is used on Linux server
-# [[probes]]
-# name       = "n8n"
-# probe_type = "dockerhub"
-# category   = "container"
-# repo_url   = "https://hub.docker.com/r/n8nio/n8n"
-# args.image      = "n8nio/n8n"
-# args.tag_filter = "^\\d+\\.\\d+\\.\\d+$"
+[[probes]]
+name       = "n8n"
+probe_type = "dockerhub"
+category   = "container"
+repo_url   = "https://hub.docker.com/r/n8nio/n8n"
+args.image      = "n8nio/n8n"
+args.tag_filter = "^\\d+\\.\\d+\\.\\d+$"
 
-# [[probes]]
-# name       = "outline"
-# probe_type = "ghcr"
-# category   = "container"
-# repo_url   = "https://github.com/outline/outline"
-# args.owner      = "outlinewiki"
-# args.image      = "outline"
-# args.tag_filter = "^\\d+\\.\\d+\\.\\d+$"
+# Outline: use dockerhub when you don't own the repo (no token). Use ghcr + github_token if you prefer.
+[[probes]]
+name       = "outline"
+probe_type = "dockerhub"
+category   = "container"
+repo_url   = "https://hub.docker.com/r/outlinewiki/outline"
+args.image      = "outlinewiki/outline"
+args.tag_filter = "^\\d+\\.\\d+(\\.\\d+)?$"
+# Alternative: probe_type = "ghcr", args.owner = "outlinewiki", args.image = "outline" (needs github_token for private or when anonymous fails)
+
+# Hoppscotch (Docker Hub). Tag format e.g. 2025.11.0 or latest.
+[[probes]]
+name       = "hoppscotch"
+probe_type = "dockerhub"
+category   = "container"
+repo_url   = "https://hub.docker.com/r/hoppscotch/hoppscotch"
+args.image      = "hoppscotch/hoppscotch"
+args.tag_filter = "^\\d+\\.\\d+(\\.\\d+)?$"
+
+# Mailu (ghcr.io/mailu/*) — tag format year.month or year.month.patch (e.g. 2024.06, 2024.06.47). Needs github_token.
+[[probes]]
+name       = "admin"
+probe_type = "ghcr"
+category   = "container"
+repo_url   = "https://github.com/Mailu/Mailu"
+args.owner      = "mailu"
+args.image      = "admin"
+args.tag_filter = "^\\d{4}\\.\\d{2}(\\.\\d+)?$"
+[[probes]]
+name       = "dovecot"
+probe_type = "ghcr"
+category   = "container"
+repo_url   = "https://github.com/Mailu/Mailu"
+args.owner      = "mailu"
+args.image      = "dovecot"
+args.tag_filter = "^\\d{4}\\.\\d{2}(\\.\\d+)?$"
+[[probes]]
+name       = "nginx"
+probe_type = "ghcr"
+category   = "container"
+repo_url   = "https://github.com/Mailu/Mailu"
+args.owner      = "mailu"
+args.image      = "nginx"
+args.tag_filter = "^\\d{4}\\.\\d{2}(\\.\\d+)?$"
+[[probes]]
+name       = "postfix"
+probe_type = "ghcr"
+category   = "container"
+repo_url   = "https://github.com/Mailu/Mailu"
+args.owner      = "mailu"
+args.image      = "postfix"
+args.tag_filter = "^\\d{4}\\.\\d{2}(\\.\\d+)?$"
+[[probes]]
+name       = "rspamd"
+probe_type = "ghcr"
+category   = "container"
+repo_url   = "https://github.com/Mailu/Mailu"
+args.owner      = "mailu"
+args.image      = "rspamd"
+args.tag_filter = "^\\d{4}\\.\\d{2}(\\.\\d+)?$"
+[[probes]]
+name       = "unbound"
+probe_type = "ghcr"
+category   = "container"
+repo_url   = "https://github.com/Mailu/Mailu"
+args.owner      = "mailu"
+args.image      = "unbound"
+args.tag_filter = "^\\d{4}\\.\\d{2}(\\.\\d+)?$"
+[[probes]]
+name       = "oletools"
+probe_type = "ghcr"
+category   = "container"
+repo_url   = "https://github.com/Mailu/Mailu"
+args.owner      = "mailu"
+args.image      = "oletools"
+args.tag_filter = "^\\d{4}\\.\\d{2}(\\.\\d+)?$"
+[[probes]]
+name       = "webmail"
+probe_type = "ghcr"
+category   = "container"
+repo_url   = "https://github.com/Mailu/Mailu"
+args.owner      = "mailu"
+args.image      = "webmail"
+args.tag_filter = "^\\d{4}\\.\\d{2}(\\.\\d+)?$"
+
+# CONTAINER flow = same as RUNTIME: [[probes]] / [container_base_images] = override; else auto-resolve.
+# Custom-built images: resolve here (no Dockerfile change / rebuild) or add LABEL io.server-lens.base-image in Dockerfile.
+# Map container name (as in docker ps) -> Docker Hub image to probe for latest_version.
+[container_base_images]
+# Custom-built from debug-files/var-www-docker (container name as in docker ps / compose project)
+"n8n-n8n"              = "n8nio/n8n"
+"redis-dashboard"      = "redis/redisinsight"
+"redis-dashboard-redis-dashboard" = "redis/redisinsight"
+"hoppscotch"           = "hoppscotch/hoppscotch"
+"typesense-dashboard"  = "bfritscher/typesense-dashboard"
+"typesense-dashboard-typesense-dashboard" = "bfritscher/typesense-dashboard"
+"postgres"             = "library/postgres"
+"postgres-postgres"    = "library/postgres"
+"typesense"            = "typesense/typesense"
+"typesense-typesense"  = "typesense/typesense"
+"redis-pool-1"         = "library/redis"
+"redis-pool-2"         = "library/redis"
+"redis-pool-3"         = "library/redis"
+"redis-pool-4"         = "library/redis"
+"redis-pool-5"         = "library/redis"
+"redis-pool-6"         = "library/redis"
+"redis-pool-7"         = "library/redis"
+"redis-pool-8"         = "library/redis"
+"redis-pool-9"         = "library/redis"
+"redis-pool-10"        = "library/redis"
+"redis-redis-pool-1"   = "library/redis"
+"redis-redis-pool-2"   = "library/redis"
+"redis-redis-pool-3"   = "library/redis"
+"redis-redis-pool-4"   = "library/redis"
+"redis-redis-pool-5"   = "library/redis"
+"redis-redis-pool-6"   = "library/redis"
+"redis-redis-pool-7"   = "library/redis"
+"redis-redis-pool-8"   = "library/redis"
+"redis-redis-pool-9"   = "library/redis"
+"redis-redis-pool-10"  = "library/redis"
+
+# Group label for containers from same compose (e.g. mailu). UI shows "mailu/oletools" instead of "oletools".
+[container_groups]
+mailu = ["admin", "dovecot", "nginx", "postfix", "rspamd", "unbound", "oletools", "webmail", "redis"]
+
+# Optional: exec command to detect running version. Redis/postgres have built-in fallbacks (redis-server --version, postgres --version).
+[container_version_commands]
+"n8n"      = "n8n --version"
+"n8n-n8n"  = "n8n --version"
+# "my-app"   = "my-app --version"

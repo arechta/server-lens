@@ -1,0 +1,35 @@
+feat: dashboard UX, header redesign, smart UA, sorting, alerts detail, Snap/APT
+
+- User-Agent: random browser UA for all outbound fetches (Snap, Npm, Node,
+  Github, DockerHub, Ghcr, container-version); per-scan reset to avoid bot
+  fingerprint; add src/utils/user-agent.ts (getRandomUserAgent, resetUserAgent).
+
+- Snap: fix latest version resolution (SnapProbe). Handle channel as object
+  or string; match stable/latest/stable; get version from channel-map or
+  revisions; 2MB response limit; prefer stable + current arch; fix TypeError
+  on e.channel.toLowerCase.
+
+- Dashboard sort: by update priority (MAJOR → minor → patch → unknown → none),
+  then oldest release date, then latest version (bigger first), then probe type,
+  then name. APT: show only priority (linux-image, kernel, systemd, security)
+  plus all outdated; hide non-priority up-to-date APT packages.
+
+- AlertBar: show details per event (message from data_json), timestamp on left,
+  GitLens-style timeline (● node, │ connector). Reason strings for
+  service_degraded, reboot_required, disk_warning. Dedupe by using payload
+  message so each line is distinct.
+
+- Header: Claude Code style. Left logo box (aspect-square 2:1 width:height),
+  right 2 rows (Recent scans from DB, Summary). Single outer border, then
+  per-cell borders with negative margin so edges merge (no double lines).
+  Summary: remove Version, Host, Last scan; keep Tools, Updates, Filter,
+  Maintainer in 2-column left-aligned (name | value). Add maintainer
+  arechta.dev <Asphira Andreas>. Logo fixed size for visual square and
+  alignment with 2 rows; header height 18 lines so Recent scans list visible.
+
+- System event message: build human-readable reason from event payload in
+  index (systemEventMessage); pass message + timestamp into AlertBar.
+
+- Recent scans: load getSnapshotList(db, 5) in display mode; pass recentScans
+  via App → DashboardScreen → Header; show in first right row with formatted
+  date/time and tool count.

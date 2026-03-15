@@ -1,0 +1,14 @@
+services:
+  n8n:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: n8n
+    restart: always
+    ports:
+      - "127.0.0.1:5678:5678" # Only localhost access, Nginx will proxy
+    env_file:
+      - .env
+    volumes:
+      - ./data:/home/node/.n8n
+      - ./local_files:/files

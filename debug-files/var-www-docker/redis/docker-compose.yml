@@ -1,0 +1,204 @@
+services:
+  redis-pool-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redis-pool-1
+    restart: unless-stopped
+    command: >
+      sh -c "chown -R redis:redis /data &&
+             chmod -R 777 /data &&
+             redis-server --requirepass \"${REDIS_PASSWORD}\"
+                          ${REDIS_CONFIG_OPTS}"
+    ports:
+      - "0.0.0.0:6381:6379" # Only localhost access, Nginx will proxy
+    env_file:
+      - .env
+    volumes:
+      - ./data/pool-1:/data # Unique data directory
+    networks:
+      - redis-network
+
+  redis-pool-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redis-pool-2
+    restart: unless-stopped
+    command: >
+      sh -c "chown -R redis:redis /data &&
+             chmod -R 777 /data &&
+             redis-server --requirepass \"${REDIS_PASSWORD}\"
+                          ${REDIS_CONFIG_OPTS}"
+    ports:
+      - "0.0.0.0:6382:6379" # Only localhost access, Nginx will proxy
+    env_file:
+      - .env
+    volumes:
+      - ./data/pool-2:/data # Unique data directory
+    networks:
+      - redis-network
+
+  redis-pool-3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redis-pool-3
+    restart: unless-stopped
+    command: >
+      sh -c "chown -R redis:redis /data &&
+             chmod -R 777 /data &&
+             redis-server --requirepass \"${REDIS_PASSWORD}\"
+                          ${REDIS_CONFIG_OPTS}"
+    ports:
+      - "0.0.0.0:6383:6379" # Only localhost access, Nginx will proxy
+    env_file:
+      - .env
+    volumes:
+      - ./data/pool-3:/data # Unique data directory
+    networks:
+      - redis-network
+
+  redis-pool-4:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redis-pool-4
+    restart: unless-stopped
+    command: >
+      sh -c "chown -R redis:redis /data &&
+             chmod -R 777 /data &&
+             redis-server --requirepass \"${REDIS_PASSWORD}\"
+                          ${REDIS_CONFIG_OPTS}"
+    ports:
+      - "0.0.0.0:6384:6379" # Only localhost access, Nginx will proxy
+    env_file:
+      - .env
+    volumes:
+      - ./data/pool-4:/data # Unique data directory
+    networks:
+      - redis-network
+
+  redis-pool-5:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redis-pool-5
+    restart: unless-stopped
+    command: >
+      sh -c "chown -R redis:redis /data &&
+             chmod -R 777 /data &&
+             redis-server --requirepass \"${REDIS_PASSWORD}\"
+                          ${REDIS_CONFIG_OPTS}"
+    ports:
+      - "0.0.0.0:6385:6379" # Only localhost access, Nginx will proxy
+    env_file:
+      - .env
+    volumes:
+      - ./data/pool-5:/data # Unique data directory
+    networks:
+      - redis-network
+
+  redis-pool-6:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redis-pool-6
+    restart: unless-stopped
+    command: >
+      sh -c "chown -R redis:redis /data &&
+             chmod -R 777 /data &&
+             redis-server --requirepass \"${REDIS_PASSWORD}\"
+                          ${REDIS_CONFIG_OPTS}"
+    ports:
+      - "0.0.0.0:6386:6379" # Only localhost access, Nginx will proxy
+    env_file:
+      - .env
+    volumes:
+      - ./data/pool-6:/data # Unique data directory
+    networks:
+      - redis-network
+
+  redis-pool-7:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redis-pool-7
+    restart: unless-stopped
+    command: >
+      sh -c "chown -R redis:redis /data &&
+             chmod -R 777 /data &&
+             redis-server --requirepass \"${REDIS_PASSWORD}\"
+                          ${REDIS_CONFIG_OPTS}"
+    ports:
+      - "0.0.0.0:6387:6379" # Only localhost access, Nginx will proxy
+    env_file:
+      - .env
+    volumes:
+      - ./data/pool-7:/data # Unique data directory
+    networks:
+      - redis-network
+
+  redis-pool-8:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redis-pool-8
+    restart: unless-stopped
+    command: >
+      sh -c "chown -R redis:redis /data &&
+             chmod -R 777 /data &&
+             redis-server --requirepass \"${REDIS_PASSWORD}\"
+                          ${REDIS_CONFIG_OPTS}"
+    ports:
+      - "0.0.0.0:6388:6379" # Only localhost access, Nginx will proxy
+    env_file:
+      - .env
+    volumes:
+      - ./data/pool-8:/data # Unique data directory
+    networks:
+      - redis-network
+
+  redis-pool-9:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redis-pool-9
+    restart: unless-stopped
+    command: >
+      sh -c "chown -R redis:redis /data &&
+             chmod -R 777 /data &&
+             redis-server --requirepass \"${REDIS_PASSWORD}\"
+                          ${REDIS_CONFIG_OPTS}"
+    ports:
+      - "0.0.0.0:6389:6379" # Only localhost access, Nginx will proxy
+    env_file:
+      - .env
+    volumes:
+      - ./data/pool-9:/data # Unique data directory
+    networks:
+      - redis-network
+
+  redis-pool-10:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redis-pool-10
+    restart: unless-stopped
+    command: >
+      sh -c "chown -R redis:redis /data &&
+             chmod -R 777 /data &&
+             redis-server --requirepass \"${REDIS_PASSWORD}\"
+                          ${REDIS_CONFIG_OPTS}"
+    ports:
+      - "0.0.0.0:6390:6379" # Only localhost access, Nginx will proxy
+    env_file:
+      - .env
+    volumes:
+      - ./data/pool-10:/data # Unique data directory
+    networks:
+      - redis-network
+
+networks:
+  redis-network:
+    driver: bridge

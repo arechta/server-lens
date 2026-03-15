@@ -1,0 +1,15 @@
+services:
+  outline:
+    image: docker.getoutline.com/outlinewiki/outline:latest
+    user: "${DOCKER_UID}:${DOCKER_GID}"
+    container_name: outline
+    restart: unless-stopped
+    env_file: ./.env
+    ports:
+      - "127.0.0.1:3000:3000"  # Only exposed to localhost — proxied via Nginx
+    volumes:
+      - /var/www/docker/outline/data:/var/lib/outline/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Required on Linux to resolve host services
+
+networks: {}

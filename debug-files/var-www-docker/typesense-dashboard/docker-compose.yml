@@ -1,0 +1,16 @@
+services:
+  typesense-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: typesense-dashboard
+    restart: always
+    ports:
+      - "0.0.0.0:${PORT:-8080}:80" # Only localhost access, Nginx will proxy
+    environment:
+      - PUBLIC_PATH=${PUBLIC_PATH:-/}
+    env_file:
+      - .env
+    volumes:
+      - ./config.json:/srv/config.json:ro  # Mount config for auto-login
+      - ./data:/srv/data  # Optional: for any persistent data

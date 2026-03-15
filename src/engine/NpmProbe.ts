@@ -1,4 +1,5 @@
 import type { Probe, ProbeArgs, ProbeResult } from "./probe-types";
+import { getRandomUserAgent } from "../utils/user-agent";
 
 interface NpmPackage {
   "dist-tags"?: { latest?: string };
@@ -22,7 +23,9 @@ export class NpmProbe implements Probe {
     }
 
     try {
-      const res = await fetch(regUrl);
+      const res = await fetch(regUrl, {
+        headers: { "User-Agent": getRandomUserAgent() },
+      });
 
       if (!res.ok) {
         return {

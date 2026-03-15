@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  hoppscotch:
+    image: hoppscotch/hoppscotch
+    container_name: hoppscotch-app
+    restart: unless-stopped
+    # Mapping port sesuai kebutuhan Anda (Host:Container)
+    ports:
+      - "9500:9500" # Frontend / UI
+      #- "9501:3100" # Admin Dashboard
+      #- "9502:3170" # Backend API / GQL
+
+    # Menghubungkan file .env yang sudah Anda edit tadi
+    env_file:
+      - .env
+
+    # Penting: Agar container bisa mengenali 'host.docker.internal' di Linux
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # Penjadwalan memori (opsional, agar stabil)
+    deploy:
+      resources:
+        limits:
+          memory: 2G

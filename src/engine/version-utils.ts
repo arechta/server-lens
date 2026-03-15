@@ -2,15 +2,26 @@ import type { UpdateType } from "../schema/types";
 
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)(?:[-.](\w+))?$/;
 
+/** Coerce short versions so 1 vs 1.12.1 is compared as 1.0.0 vs 1.12.1 (minor), not unknown. */
+function normalizeForCompare(v: string): string {
+  const s = v.trim().replace(/^v/, "");
+  if (SEMVER.test(s)) return s;
+  const parts = s.split(".").filter(Boolean);
+  if (parts.length === 1 && /^\d+$/.test(parts[0]!)) return `${parts[0]}.0.0`;
+  if (parts.length === 2 && /^\d+$/.test(parts[0]!) && /^\d+$/.test(parts[1]!)) return `${parts[0]}.${parts[1]}.0`;
+  return s;
+}
+
 function parseSemver(v: string): [number, number, number] | null {
-  const m = v.match(SEMVER);
+  const normalized = normalizeForCompare(v);
+  const m = normalized.match(SEMVER);
   if (!m) return null;
   return [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)];
 }
 
 function compareSemver(a: string, b: string): number {
-  const va = parseSemver(a);
-  const vb = parseSemver(b);
+  const va = parseSemver(normalizeForCompare(a));
+  const vb = parseSemver(normalizeForCompare(b));
   if (!va || !vb) return 0; // unknown
   for (let i = 0; i < 3; i++) {
     if (va[i] !== vb[i]) return va[i] - vb[i];
@@ -26,8 +37,8 @@ export function computeUpdateType(
   if (!current) return "unknown";
   if (current === latest) return "none";
 
-  const va = parseSemver(current);
-  const vb = parseSemver(latest);
+  const va = parseSemver(normalizeForCompare(current));
+  const vb = parseSemver(normalizeForCompare(latest));
   if (!va || !vb) return "unknown";
 
   const cmp = compareSemver(current, latest);

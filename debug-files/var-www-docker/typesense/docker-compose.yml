@@ -1,0 +1,18 @@
+services:
+  typesense:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: typesense
+    restart: always
+    ports:
+      - "0.0.0.0:${PORT:-8108}:8108" # Only localhost access, Nginx will proxy
+    environment:
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY}
+      - TYPESENSE_DATA_DIR=/data
+      - TYPESENSE_ENABLE_CORS=true
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data  # Persistent data storage
+    command: --data-dir /data --api-key ${TYPESENSE_API_KEY} --enable-cors

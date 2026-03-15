@@ -1,0 +1,16 @@
+services:
+  redis-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redis-dashboard
+    restart: unless-stopped
+    ports:
+      # Only localhost access, Nginx will proxy
+      # Maps host's 127.0.0.1:5540 to container's 5540
+      - "0.0.0.0:${PORT:-5540}:5540"
+    env_file:
+      - .env
+    volumes:
+      # Persistent data storage for Redis Insight. The internal path /db is specified by the image documentation.
+      - ./data:/db

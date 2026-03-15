@@ -1,0 +1,120 @@
+
+services:
+  resolver:
+    image: ghcr.io/mailu/unbound:2024.06
+    restart: always
+    env_file: .env
+    networks:
+      default:
+        ipv4_address: 192.168.203.254
+
+  front:
+    image: ghcr.io/mailu/nginx:2024.06
+    restart: always
+    env_file: .env
+    dns:
+      - 192.168.203.254
+    ports:
+      - "25:25"
+      - "465:465"
+      - "587:587"
+      - "993:993"
+      - "995:995"
+      - "127.0.0.1:8088:80"    # ← ADD THIS — web UI, localhost only
+    volumes:
+      - /var/www/docker/mailu/overrides/nginx:/overrides:ro
+    depends_on:
+      - resolver
+    networks:
+      - default
+      - webmail
+
+  admin:
+    image: ghcr.io/mailu/admin:2024.06
+    restart: always
+    env_file: .env
+    dns:
+      - 192.168.203.254    # use mailu's own unbound resolver
+    volumes:
+      - /var/www/docker/mailu/data:/data
+      - /var/www/docker/mailu/dkim:/dkim
+    depends_on:
+      - redis
+      - resolver
+    networks:
+      - default
+
+  imap:
+    image: ghcr.io/mailu/dovecot:2024.06
+    restart: always
+    env_file: .env
+    dns:
+      - 192.168.203.254    # use mailu's own unbound resolver
+    volumes:
+      - /var/www/docker/mailu/mail:/mail
+      - /var/www/docker/mailu/overrides/dovecot:/overrides:ro
+    networks:
+      - default
+
+  smtp:
+    image: ghcr.io/mailu/postfix:2024.06
+    restart: always
+    env_file: .env
+    dns:
+      - 192.168.203.254    # use mailu's own unbound resolver
+    volumes:
+      - /var/www/docker/mailu/mailqueue:/queue
+      - /var/www/docker/mailu/overrides/postfix:/overrides:ro
+    depends_on:
+      - resolver
+    networks:
+      - default
+
+  antispam:
+    image: ghcr.io/mailu/rspamd:2024.06
+    restart: always
+    env_file: .env
+    dns:
+      - 192.168.203.254    # use mailu's own unbound resolver
+    volumes:
+      - /var/www/docker/mailu/filter:/var/lib/rspamd
+      - /var/www/docker/mailu/overrides/rspamd:/overrides:ro
+    networks:
+      - default
+      - noinet
+
+  oletools:
+    image: ghcr.io/mailu/oletools:2024.06
+    restart: always
+    networks:
+      - noinet
+
+  webmail:
+    image: ghcr.io/mailu/webmail:2024.06
+    restart: always
+    env_file: .env
+    volumes:
+      - /var/www/docker/mailu/webmail:/data
+    networks:
+      - webmail
+      - default
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - /var/www/docker/mailu/redis:/data
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.203.0/24
+  webmail:
+    driver: bridge
+  noinet:
+    driver: bridge
+    internal: true
