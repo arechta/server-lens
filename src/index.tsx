@@ -8,6 +8,19 @@
 import React from "react";
 import { render } from "ink";
 import { App } from "./ui/App";
+
+// Alt screen for full-screen display views (dashboard, notes, status, events).
+// The scan screen deliberately stays inline so previous commands remain
+// visible above the live probe log — exactly like Claude Code's behaviour.
+// For display views the alt screen means pressing 'q' restores the terminal
+// to exactly the state it was in before running server-lens.
+function enterDisplayScreen() {
+  if (!process.stdout.isTTY) return;
+  process.stdout.write('\x1b[?1049h'); // enter alternate screen buffer
+  const restore = () => process.stdout.write('\x1b[?1049l');
+  process.on('exit', restore);
+  process.on('SIGTERM', () => { restore(); process.exit(143); });
+}
 import { loadConfig } from "./config/config-loader";
 import { getDatabase } from "./db/database";
 import { getLatestSnapshot, getSnapshotList } from "./db/snapshots-repo";
@@ -167,6 +180,7 @@ if (subcommand === "notes") {
     const db = getDatabase(config.dbPath);
     tool = getToolByName(db, toolNameArg);
   }
+  enterDisplayScreen();
   const { waitUntilExit } = render(
     React.createElement(App, {
       screen: "notes" as const,
@@ -231,6 +245,7 @@ if (subcommand === "status") {
     }
   }
 
+  enterDisplayScreen();
   const { waitUntilExit } = render(
     React.createElement(App, {
       screen: "status" as const,
@@ -265,6 +280,7 @@ if (subcommand === "events") {
     }));
   }
 
+  enterDisplayScreen();
   const { waitUntilExit } = render(
     React.createElement(App, {
       screen: "events" as const,
@@ -413,6 +429,7 @@ if (existsSync(config.dbPath)) {
   } catch {/* ignore */}
 }
 
+enterDisplayScreen();
 render(
   React.createElement(App, {
     screen: "dashboard" as const,
