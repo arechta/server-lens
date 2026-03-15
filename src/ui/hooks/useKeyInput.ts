@@ -22,8 +22,17 @@ export function useKeyInput({
 }: KeyInputHandlers) {
   useInput((input, key) => {
     if (input === "q" || key.escape) {
-      onQuit?.();
-      return;
+      // Leave rendered content in the terminal buffer on exit.
+      // Ink's default cleanup (cursor-up N + erase-to-end) wipes the screen;
+      // blocking stdout writes prevents that so the output stays visible in
+      // the scrollback — same behaviour as Claude Code and other inline TUIs.
+      if (process.stdout.isTTY) {
+        const origWrite = process.stdout.write.bind(process.stdout);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (process.stdout as any).write = () => true; // swallow Ink's cleanup
+        origWrite('\n'); // ensure shell prompt starts on a fresh line
+      }
+      process.exit(0);
     }
     if (key.upArrow) { onUp?.(); return; }
     if (key.downArrow) { onDown?.(); return; }
