@@ -79,17 +79,27 @@ if (subcommand === "scan") {
 
   const instance = render(makeEl());
 
-  // Debounce rerenders: batch all state mutations within one JS tick into a single
-  // rerender call. This prevents Ink cursor-tracking glitches when many probes
-  // complete in rapid succession (e.g. fast APT batch results all arriving at once).
-  let _rerenderScheduled = false;
+  // Throttle rerenders to at most once per 80ms so fast-completing probes (e.g. apt
+  // batch Map lookups that all resolve in the same tick) are visible as a live
+  // incrementing counter rather than jumping straight to the final number.
+  // The fixed-height ScanScreen means there is no flicker risk from frequent rerenders.
+  const THROTTLE_MS = 80;
+  let _lastRender = 0;
+  let _pending: ReturnType<typeof setTimeout> | null = null;
   function scheduleRerender() {
-    if (_rerenderScheduled) return;
-    _rerenderScheduled = true;
-    setImmediate(() => {
-      _rerenderScheduled = false;
+    if (_pending) return; // already scheduled for next window
+    const now = Date.now();
+    const wait = THROTTLE_MS - (now - _lastRender);
+    if (wait <= 0) {
+      _lastRender = now;
       instance.rerender(makeEl());
-    });
+    } else {
+      _pending = setTimeout(() => {
+        _pending = null;
+        _lastRender = Date.now();
+        instance.rerender(makeEl());
+      }, wait);
+    }
   }
 
   try {
@@ -98,8 +108,8 @@ if (subcommand === "scan") {
       withNotes: hasWithNotes,
       onProgress: (name: string) => {
         currentProbe = name;
-        // Phase messages like "(discovering tools…)" are not individual tool probes
-        if (!name.startsWith("(")) probedCount++;
+        // Phase messages (discovery/apt) carry their own "(N done)" count — don't double-count
+        if (!name.includes(" found)") && !name.includes(" done)") && !name.endsWith("…")) probedCount++;
         scheduleRerender();
       },
       onProbeComplete: (entry, durationMs) => {

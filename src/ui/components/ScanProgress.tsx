@@ -43,6 +43,10 @@ export function ScanProgress({
     );
   }
 
+  // Phase messages like "discovering runtime (12 found)" and "collecting apt packages (15 done)"
+  // already embed a count — don't append a second "(N done)" from totalProbed.
+  const labelHasCount = currentTool.includes(" found)") || currentTool.includes(" done)");
+
   return (
     <Box>
       <Text color={theme.accent}>{SPINNER_FRAMES[frame]} </Text>
@@ -52,7 +56,7 @@ export function ScanProgress({
       ) : (
         <Text color={theme.muted}>...</Text>
       )}
-      {totalProbed > 0 && <Text color={theme.muted}> ({totalProbed} done)</Text>}
+      {totalProbed > 0 && !labelHasCount && <Text color={theme.muted}> ({totalProbed} done)</Text>}
     </Box>
   );
 }
