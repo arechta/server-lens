@@ -95,13 +95,23 @@ export function ScanScreen({
   // Skip auto-apt entries (batch lookups, all ~0ms — not useful for timing)
   const allVisible = scanLog.filter((e) => e.probeType !== "apt" || e.probeFailed || e.isOutdated);
 
-  // Cap rendered rows to terminal height so Ink always knows how many lines to erase on rerender.
-  // Without this cap, once the list grows beyond the terminal viewport Ink loses cursor position
-  // and the whole screen jumps/duplicates. Shows the most recent entries (tail-f behaviour).
-  // header box(3) + marginTop(1) + spinner row(1) + padding(2) = 7 fixed rows
+  // Fixed-height log area: always render exactly maxLogRows slots.
+  // Empty slots (null) pad the top; real entries fill from the bottom.
+  //
+  // WHY: Ink renders inline by moving cursor up N lines and overwriting.
+  // If the component height changes (grows by 1 per new entry), Ink erases and
+  // rewrites the whole component on every frame — visible as jumping/flicker.
+  // With a fixed height, Ink just overwrites in-place with no erase needed.
+  //
+  // Fixed rows: outer padding(2) + header box(3) + marginTop(1) + spinner(1) + marginTop(1) = 8
   const termRows = stdout?.rows ?? 30;
-  const maxLogRows = Math.max(3, termRows - 7);
-  const visible = allVisible.slice(-maxLogRows);
+  const maxLogRows = Math.max(3, termRows - 8);
+  const tail = allVisible.slice(-maxLogRows);
+  // Pre-fill top with nulls so total slots === maxLogRows from the very first frame
+  const logSlots: (ScanLogEntry | null)[] = [
+    ...Array<null>(Math.max(0, maxLogRows - tail.length)).fill(null),
+    ...tail,
+  ];
 
   return (
     <Box flexDirection="column" padding={1}>
@@ -111,14 +121,14 @@ export function ScanScreen({
         {dryRun && <Text color={theme.warning}> [dry-run]</Text>}
       </Box>
 
-      {/* Live probe log */}
-      {visible.length > 0 && (
-        <Box flexDirection="column" marginTop={1}>
-          {visible.map((entry, i) => (
-            <ScanLogRow key={`${entry.name}-${i}`} entry={entry} />
-          ))}
-        </Box>
-      )}
+      {/* Live probe log — fixed height, entries fill from bottom up */}
+      <Box flexDirection="column" marginTop={1}>
+        {logSlots.map((entry, i) =>
+          entry
+            ? <ScanLogRow key={`slot-${i}`} entry={entry} />
+            : <Box key={`slot-${i}`}><Text> </Text></Box>
+        )}
+      </Box>
 
       <Box marginTop={1}>
         <ScanProgress
