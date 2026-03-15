@@ -90,13 +90,16 @@ const DEFAULT_SETTINGS: SettingsConfig = {
 };
 
 function findConfigPath(): string {
-  const cwd = process.cwd();
-  const local = join(cwd, "server-lens.toml");
-  if (existsSync(local)) return local;
-  // Production paths (Linux)
+  // Explicit override via env var
+  const envPath = process.env.SERVER_LENS_CONFIG;
+  if (envPath) return envPath;
+  // Production system install takes priority over CWD (avoids dev repo TOML shadowing /etc config)
   const etc = "/etc/server-lens/server-lens.toml";
   if (existsSync(etc)) return etc;
-  return local; // Default to local even if missing — will throw on load
+  // Local dev fallback
+  const cwd = process.cwd();
+  const local = join(cwd, "server-lens.toml");
+  return local; // Default even if missing — will throw on load
 }
 
 function getDbPath(configPath: string): string {
