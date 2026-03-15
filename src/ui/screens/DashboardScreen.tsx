@@ -72,6 +72,84 @@ function compareTools(a: VersionEntry, b: VersionEntry): number {
   return (a.display_name ?? a.name).localeCompare(b.display_name ?? b.name);
 }
 
+// ─── Kernel package filtering ────────────────────────────────────────────────
+
+/** Extract the kernel version embedded in a package name, or null for meta-packages.
+ *  e.g. "linux-image-6.8.0-87-generic" → "6.8.0-87-generic"
+ *       "linux-image-generic"           → null  (meta/flavor pointer)
+ */
+function kernelPkgVersion(name: string): string | null {
+  const m = /^linux-(?:image|headers|modules(?:-extra)?)-(\d[\d.\-]+\w*)$/i.exec(name);
+  return m ? m[1]! : null;
+}
+
+let _runningKernel: string | null | undefined = undefined;
+/** Returns the currently-running kernel release (uname -r), cached. */
+function getRunningKernel(): string | null {
+  if (_runningKernel !== undefined) return _runningKernel;
+  try {
+    const r = Bun.spawnSync(["uname", "-r"], { stdout: "pipe" });
+    _runningKernel = new TextDecoder().decode(r.stdout).trim() || null;
+  } catch {
+    _runningKernel = null;
+  }
+  return _runningKernel;
+}
+
+/**
+ * For linux-image/headers/modules packages, keep only:
+ *   • meta/generic packages (no version in name, e.g. linux-image-generic)
+ *   • packages whose name-version matches the running kernel  (what we're using)
+ *   • packages whose name-version is the highest installed     (pending reboot, if different)
+ *
+ * All other historical kernel versions are dropped.
+ */
+function filterKernelPackages(
+  packages: VersionEntry[],
+  runningKernel: string | null,
+): VersionEntry[] {
+  const meta: VersionEntry[] = [];
+  const versioned: VersionEntry[] = [];
+  for (const pkg of packages) {
+    if (kernelPkgVersion(pkg.name) === null) meta.push(pkg);
+    else versioned.push(pkg);
+  }
+  if (versioned.length === 0) return meta;
+
+  // Newest installed — sort by version string in package name (numeric-aware, descending)
+  const sorted = [...versioned].sort((a, b) => {
+    const va = kernelPkgVersion(a.name) ?? "";
+    const vb = kernelPkgVersion(b.name) ?? "";
+    return vb.localeCompare(va, undefined, { numeric: true });
+  });
+  const newestVer = kernelPkgVersion(sorted[0]!.name)!;
+
+  // Running kernel packages — match by version embedded in package name
+  const runningPkgs = new Set<string>();
+  if (runningKernel) {
+    // Strip optional flavor suffix so "6.8.0-87-generic" also matches "linux-headers-6.8.0-87"
+    const base = runningKernel.replace(/-[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$/, "");
+    for (const pkg of versioned) {
+      const v = kernelPkgVersion(pkg.name)!;
+      if (v === runningKernel || v.startsWith(base)) runningPkgs.add(pkg.name);
+    }
+  }
+
+  const seen = new Set<string>();
+  const result: VersionEntry[] = [...meta];
+  for (const pkg of versioned) {
+    const v = kernelPkgVersion(pkg.name)!;
+    const keep = runningPkgs.has(pkg.name) || v === newestVer;
+    if (keep && !seen.has(pkg.name)) {
+      seen.add(pkg.name);
+      result.push(pkg);
+    }
+  }
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 /** APT priority tier: 0=linux image, 1=kernel/headers, 2=system, 3=security, 4=other (not priority) */
 function aptPriorityTier(name: string): number {
   const n = name.toLowerCase();
@@ -101,10 +179,20 @@ function groupByCategory(tools: VersionEntry[]): Map<string, VersionEntry[]> {
   for (const [category, list] of map) {
     let toSort = list;
     if (category === "apt") {
-      toSort = list.filter((t) => {
+      // First pass: keep priority packages and any outdated package
+      const priority = list.filter((t) => {
         const tier = aptPriorityTier(t.name);
         return tier < 4 || t.is_outdated;
       });
+
+      // Second pass: for kernel packages (tier 0 & 1), collapse to running +
+      // newest-installed only — hides all accumulated historical kernel versions
+      const runningKernel = getRunningKernel();
+      const kernelPkgs = priority.filter((t) => aptPriorityTier(t.name) <= 1);
+      const nonKernelPkgs = priority.filter((t) => aptPriorityTier(t.name) > 1);
+      const filteredKernel = filterKernelPackages(kernelPkgs, runningKernel);
+
+      toSort = [...filteredKernel, ...nonKernelPkgs];
       toSort.sort((a, b) => {
         const ta = aptPriorityTier(a.name);
         const tb = aptPriorityTier(b.name);
