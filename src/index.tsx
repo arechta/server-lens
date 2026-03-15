@@ -20,25 +20,6 @@ import type { ScanLogEntry } from "./ui/screens/ScanScreen";
 import { existsSync } from "fs";
 import { parseExpression } from "cron-parser";
 
-// ─── Alternate screen buffer ──────────────────────────────────────────────────
-// All interactive TUI screens (scan, dashboard, notes, etc.) use the alternate
-// screen buffer so the user's terminal scrollback history is fully preserved.
-// When the program exits (normally, via 'q', or Ctrl+C), the main screen is
-// restored to exactly the state it was in before running server-lens.
-let _altActive = false;
-function enterAltScreen() {
-  if (_altActive || !process.stdout.isTTY) return;
-  _altActive = true;
-  process.stdout.write('\x1b[?1049h'); // enter alt screen
-}
-function exitAltScreen() {
-  if (!_altActive) return;
-  _altActive = false;
-  process.stdout.write('\x1b[?1049l'); // restore main screen
-}
-process.on('exit', exitAltScreen);
-process.on('SIGTERM', () => { exitAltScreen(); process.exit(143); });
-
 const args = process.argv.slice(2);
 const subcommand = args[0];
 const hasJson      = args.includes("--json");
@@ -96,13 +77,12 @@ if (subcommand === "scan") {
       themeTokens: config.theme as Record<string, string | undefined> | undefined,
     });
 
-  enterAltScreen();
   const instance = render(makeEl());
 
   // Throttle rerenders to at most once per 80ms so fast-completing probes (e.g. apt
   // batch Map lookups that all resolve in the same tick) are visible as a live
   // incrementing counter rather than jumping straight to the final number.
-  // The fixed-height ScanScreen means there is no flicker risk from frequent rerenders.
+  // The natural-height ScanScreen grows one line per entry.
   const THROTTLE_MS = 80;
   let _lastRender = 0;
   let _pending: ReturnType<typeof setTimeout> | null = null;
@@ -187,7 +167,6 @@ if (subcommand === "notes") {
     const db = getDatabase(config.dbPath);
     tool = getToolByName(db, toolNameArg);
   }
-  enterAltScreen();
   const { waitUntilExit } = render(
     React.createElement(App, {
       screen: "notes" as const,
@@ -252,7 +231,6 @@ if (subcommand === "status") {
     }
   }
 
-  enterAltScreen();
   const { waitUntilExit } = render(
     React.createElement(App, {
       screen: "status" as const,
@@ -287,7 +265,6 @@ if (subcommand === "events") {
     }));
   }
 
-  enterAltScreen();
   const { waitUntilExit } = render(
     React.createElement(App, {
       screen: "events" as const,
@@ -436,7 +413,6 @@ if (existsSync(config.dbPath)) {
   } catch {/* ignore */}
 }
 
-enterAltScreen();
 render(
   React.createElement(App, {
     screen: "dashboard" as const,
