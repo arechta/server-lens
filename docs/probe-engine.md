@@ -124,6 +124,37 @@ Best for: self-hosted services distributed via GHCR — Outline, Hoppscotch, etc
 
 ---
 
+### `NodeProbe`
+Queries the Node.js release index (`nodejs.org/download/release/index.json`).
+LTS-aware: if the current installed version is an LTS release, it compares against the
+latest version in the same LTS line (e.g., "Jod"). If the current version is a Current
+(non-LTS) release, it compares against the latest Current release.
+
+| Arg | Required | Description |
+|---|---|---|
+| `args.current_version` | ✅ | The currently installed Node.js version (e.g., `22.14.0`) |
+| `args.version` | ❌ | Alias for `current_version` |
+
+Best for: Node.js installations managed by nvm, fnm, or system package manager.
+Note: This probe is typically auto-assigned by the probe engine when Node.js is
+discovered by NvmScanner, FnmScanner, or NodeScanner — no TOML entry needed.
+
+---
+
+### `SnapProbe`
+Queries the Snap Store API (`api.snapcraft.io/v2/snaps/info/:name`).
+Returns the latest version from the `stable` channel for the current architecture.
+Architecture-aware: detects `amd64`, `arm64`, or `armhf` from `process.arch`.
+
+| Arg | Required | Description |
+|---|---|---|
+| `args.package` | ✅ | Snap package name e.g. `lxd`, `certbot`, `canonical-livepatch` |
+| `args.name` | ❌ | Alias for `args.package` |
+
+Best for: tools installed via `snap install` — LXD, certbot, etc.
+
+---
+
 ### `BinaryProbe`
 Runs the installed binary with a version flag. No network call.
 Populates `current_version` only — `latest_version` remains `null`.
@@ -294,6 +325,8 @@ The probe engine then enriches each discovered item with upstream latest version
 | `AptScanner` | All installed dpkg/apt packages | `dpkg-query -W -f '${Package} ${Version}\n'` |
 | `SnapScanner` | Snap packages | `snap list` |
 | `NvmScanner` | nvm itself + all installed Node versions | `nvm --version`, `nvm ls` |
+| `FnmScanner` | Node.js via fnm (Fast Node Manager) | `fnm list` (detects default version) |
+| `NodeScanner` | System Node.js (determines source: nvm/fnm/apt) | `node --version`, path inspection |
 | `BunScanner` | Bun (script-installed) | `bun --version` |
 | `NpmGlobalScanner` | npm globals + pnpm globals | `npm ls -g --depth=0 --json`, `pnpm ls -g --json` |
 | `DockerScanner` | Docker engine + running container image tags | `docker version`, `docker ps --format json` |
@@ -356,8 +389,10 @@ To add a new probe type: create the class, add one entry here.
 "apt"       → AptProbe
 "github"    → GithubProbe
 "npm"       → NpmProbe
+"node"      → NodeProbe
 "dockerhub" → DockerHubProbe
 "ghcr"      → GhcrProbe
+"snap"      → SnapProbe
 "binary"    → BinaryProbe
 "script"    → ScriptProbe
 ```

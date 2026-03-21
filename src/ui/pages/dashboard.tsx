@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { Box, Text, useApp } from "ink";
 import { useTheme } from "../theme-context";
-import { Header } from "../components/Header";
-import { CategoryGroup } from "../components/CategoryGroup";
-import { AlertBar } from "../components/AlertBar";
+import { Header } from "../components/header";
+import { CategoryGroup } from "../components/category-group";
+import { AlertBar } from "../components/alert-bar";
 import { useKeyInput } from "../hooks/useKeyInput";
 import type { SnapshotSummary, VersionEntry, UpdateType } from "../../schema/types";
-import type { AlertItem } from "../components/AlertBar";
+import type { AlertItem } from "../components/alert-bar";
 
 export interface RecentScanItem {
   id: number;

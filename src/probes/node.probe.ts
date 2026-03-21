@@ -4,7 +4,7 @@
  * If current is Current (non-LTS): compare to latest Current.
  */
 
-import type { Probe, ProbeArgs, ProbeResult } from "./probe-types";
+import type { Probe, ProbeArgs, ProbeResult } from "../engine/probe-types";
 import { getRandomUserAgent } from "../utils/user-agent";
 
 const NODE_INDEX_URL = "https://nodejs.org/download/release/index.json";

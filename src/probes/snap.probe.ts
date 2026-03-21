@@ -1,4 +1,4 @@
-import type { Probe, ProbeArgs, ProbeResult } from "./probe-types";
+import type { Probe, ProbeArgs, ProbeResult } from "../engine/probe-types";
 import { getRandomUserAgent } from "../utils/user-agent";
 
 const SNAP_API_BASE = "https://api.snapcraft.io/v2";

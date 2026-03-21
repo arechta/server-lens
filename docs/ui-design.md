@@ -231,27 +231,26 @@ Always pair a symbol with color — never rely on color alone (accessibility, mo
 
 ```
 src/ui/
-├── theme.ts                  ← Token types, built-in themes, useTheme() hook, ThemeContext
-├── App.tsx                   ← Root component — routes subcommand to correct screen
-├── screens/
-│   ├── DashboardScreen.tsx   ← Default display mode — category groups + summary header
-│   ├── StatusScreen.tsx      ← server-lens status — last scan, next scheduled, health
-│   ├── EventsScreen.tsx      ← server-lens events — event log table, filterable
-│   ├── NotesScreen.tsx       ← server-lens notes <tool> — markdown release notes render
-│   └── ScanScreen.tsx        ← server-lens scan — live progress during active scan
-├── components/
-│   ├── Header.tsx            ← Tool name, version, hostname, last scan, summary counts
-│   ├── CategoryGroup.tsx     ← Collapsible category section with tool rows
-│   ├── ToolRow.tsx           ← Single tool row — name, versions, update_type, probe info
-│   ├── StatusBadge.tsx       ← Colored symbol + label for update_type or probe_status
-│   ├── SummaryBar.tsx        ← Outdated counts by update_type in header
-│   ├── AlertBar.tsx          ← system.* event alerts shown below main table
-│   ├── ScanProgress.tsx      ← Live probe progress — spinner + current tool name
-│   ├── Table.tsx             ← Generic reusable table built on Ink Box rows
-│   └── Divider.tsx           ← Horizontal border line using border token
+├── app.tsx                   ← Root component — routes subcommand to correct page
+├── theme.ts                  ← Token types, built-in theme palettes (claude, claude-blue)
+├── theme-context.tsx         ← React context provider for useTheme() hook
+├── pages/                    ← Screen pages (one per subcommand view)
+│   ├── dashboard.tsx         ← Default display mode — category groups + summary header
+│   ├── status.tsx            ← server-lens status — last scan, next scheduled, health
+│   ├── events.tsx            ← server-lens events — event log table, filterable
+│   ├── notes.tsx             ← server-lens notes <tool> — markdown release notes render
+│   └── scan.tsx              ← server-lens scan — live progress during active scan
+├── components/               ← Shared UI components (kebab-case naming)
+│   ├── header.tsx            ← Tool name, version, hostname, last scan, summary counts
+│   ├── category-group.tsx    ← Collapsible category section with tool rows
+│   ├── tool-row.tsx          ← Single tool row — name, versions, update_type, probe info
+│   ├── status-badge.tsx      ← Colored symbol + label for update_type or probe_status
+│   ├── summary-bar.tsx       ← Outdated counts by update_type in header
+│   ├── alert-bar.tsx         ← system.* event alerts shown below main table
+│   ├── scan-progress.tsx     ← Live probe progress — spinner + current tool name
+│   └── divider.tsx           ← Horizontal border line using border token
 └── hooks/
-    ├── useTheme.ts           ← Re-export from theme.ts for clean imports
-    └── useKeyInput.ts        ← Keyboard nav: arrow keys, expand/collapse, quit
+    └── useKeyInput.ts        ← Keyboard nav: arrow keys, expand/collapse, quit (camelCase)
 ```
 
 ---

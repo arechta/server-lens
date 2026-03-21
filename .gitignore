@@ -41,3 +41,13 @@ coverage/
 
 # Bun
 bun.lockb
+
+# Claude Code
+.claude/
+
+# Debug / scratch files
+debug-files/
+COMMIT_MSG.txt
+
+# Design references
+inspiration-design/

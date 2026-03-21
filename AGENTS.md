@@ -46,8 +46,8 @@ See `@docs/probe-engine.md` for full detail.
   output — marked `untracked`. Current version is always shown; latest is best-effort.
 - **Event-driven.** Every scan diffs against the previous SQLite snapshot and emits
   structured events. Events can trigger webhook calls configured in `server-lens.toml`.
-- **API-ready.** Architecture is designed to support a future `server-lens serve` subcommand
-  exposing a REST HTTP API over the SQLite database — no structural changes needed.
+- **REST API.** `server-lens serve` exposes a full REST HTTP API over the SQLite database.
+  MCP server shares the same port via SSE transport.
 
 ---
 
@@ -61,7 +61,7 @@ See `@docs/probe-engine.md` for full detail.
 | Config format | TOML | Human-editable, version-controllable, standard for modern CLI tools |
 | Persistent state | SQLite via `bun:sqlite` | Embedded, zero-ops, queryable, future REST-ready |
 | Output format | JSON | Universal, pipeable, readable, no schema compile step |
-| MCP SDK | `@anthropic-ai/model-context-protocol` | MCP tools, resources, prompts — stdio + SSE transports |
+| MCP SDK | `@modelcontextprotocol/sdk` | MCP tools, resources, prompts — stdio + SSE transports |
 | Target platforms | Linux x64, Linux arm64 | EC2 / VM servers (primary), macOS for local dev |
 
 ---
@@ -75,10 +75,13 @@ See `@docs/probe-engine.md` for full detail.
 | `server-lens scan --now` | 🐢 5–15s | Force fresh scan on demand, then display results. |
 | `server-lens status` | ⚡ Instant | Shows last scan timestamp, next scheduled scan time (from TOML cron config), probe success/fail summary. |
 | `server-lens events` | ⚡ Instant | Shows event log from SQLite — filterable by domain, severity, date range. |
+| `server-lens install` | ⚡ Instant | Generates cron/systemd files from `[settings].scan_schedule` in TOML. |
+| `server-lens notes <tool>` | ⚡ Instant | Shows release notes for a specific tool (reads from last scan data). |
+| `server-lens mcp` | ⚡ Instant | Starts MCP server on stdio transport — for AI agent integration (e.g. Claude Code). |
+| `server-lens serve` | 🟢 Long-running | Starts REST HTTP API server over SQLite. Bind address from `[api]` config. |
 | `server-lens --json` | ⚡ Instant | Outputs last snapshot as JSON to stdout — for pipeline consumption. |
 | `server-lens --outdated` | ⚡ Instant | Display mode filtered to outdated tools only. |
 | `server-lens --category <name>` | ⚡ Instant | Display mode filtered by category. |
-| `server-lens serve` | — | **(Future)** Starts REST HTTP API server over SQLite. |
 
 ### SSH Welcome Screen / MOTD Integration
 ```bash
@@ -116,10 +119,26 @@ Defines the active color theme: `claude` (default, orange), `claude-blue`, or `c
 When `custom`, individual color tokens can be overridden per-token.
 See `@docs/ui-design.md` for the full token reference and built-in theme palettes.
 
+### `[auth]` block in `server-lens.toml` — Authentication tokens
+Stores API tokens for upstream sources that require authentication.
+`github_token` for GitHub API (higher rate limits, private repos).
+
 ### `[api]` block in `server-lens.toml` — API server config
 Defines bind address, port, and optional auth token.
 `host = "127.0.0.1"` (localhost) requires no token.
 `host = "0.0.0.0"` or any non-localhost value requires `token` to be set.
+
+### `[container_base_images]` block — Custom container image mapping
+Maps container names to their upstream Docker Hub/GHCR image references.
+Used for custom-built images where the base image cannot be auto-detected.
+
+### `[container_version_commands]` block — Container version detection
+Maps container names to shell commands executed inside the container (via `docker exec`)
+to extract the running software version when labels or image tags are insufficient.
+
+### `[container_groups]` block — Container grouping
+Groups multiple containers under a single logical project name (e.g., Mailu suite).
+Containers in a group share the same upstream version source.
 
 ### `server-lens.db` — Persistent state (dynamic)
 Location: `/var/lib/server-lens/server-lens.db`
@@ -133,6 +152,7 @@ Written by: The tool at runtime on every scan. Never manually edited.
 | `events` | Structured event log — one row per event emitted |
 | `webhooks_log` | Webhook delivery attempts, HTTP status codes, response bodies |
 | `schedules` | Scan schedule entries — one-time and cron, managed via API or seeded from TOML |
+| `scan_jobs` | Async scan job tracking — job_id, status, duration, triggered_by (api/mcp/cli) |
 
 See `@docs/data-schema.md` for full table schemas and field types.
 
@@ -196,36 +216,55 @@ server-lens/
 │   ├── pipeline.md                  ← Stage architecture, downstream tool handoff
 │   ├── ui-design.md                 ← Ink/React component system, color tokens, themes
 │   ├── mcp.md                       ← MCP server spec, tools, resources, prompts, transports
-│   └── remaining-tasks.md            ← Not-yet-implemented features from docs
+│   ├── remaining-tasks.md           ← Backlog and deferred features
+│   ├── container-auto-resolve.md    ← Custom container image resolution strategies
+│   ├── ghcr-token-setup.md          ← GHCR authentication guide
+│   └── context-log/                 ← Chronological change history (see Documentation Maintenance Rules)
+│       └── _index.md                ← Context log system index and entry table
+├── scripts/
+│   ├── patch-yoga.js                ← Postinstall: patches yoga.wasm → ASM.js for Ink/Bun compile
+│   ├── export-containers-json.sh    ← Debug helper: exports Docker container state
+│   └── test-ghcr-token.sh           ← Debug helper: tests GHCR token authentication
 ├── src/
 │   ├── index.tsx                    ← CLI entry point, subcommand router, Ink render root
-│   ├── scanner/                     ← Auto-discovery scanners
-│   │   ├── AptScanner.ts
-│   │   ├── SnapScanner.ts
-│   │   ├── NvmScanner.ts
-│   │   ├── BunScanner.ts
-│   │   ├── NpmGlobalScanner.ts      ← npm ls -g + pnpm ls -g
-│   │   ├── DockerScanner.ts
-│   │   ├── Pm2Scanner.ts
-│   │   ├── SystemdScanner.ts
-│   │   └── BinaryScanner.ts         ← Fallback: /usr/local/bin scan
-│   ├── probes/                      ← One file per probe type
-│   │   ├── AptProbe.ts
-│   │   ├── GithubProbe.ts
-│   │   ├── NpmProbe.ts
-│   │   ├── DockerHubProbe.ts
-│   │   ├── GhcrProbe.ts
-│   │   ├── BinaryProbe.ts
-│   │   └── ScriptProbe.ts
-│   ├── engine/
-│   │   ├── probe-engine.ts          ← Orchestrates scan: loads TOML, runs probes, merges results
-│   │   └── probe-factory.ts         ← Maps probe_type string → Probe class instance
+│   ├── scanner/                     ← Auto-discovery scanners (11 scanners)
+│   │   ├── apt.scanner.ts           ← dpkg-query all installed packages
+│   │   ├── snap.scanner.ts          ← snap list
+│   │   ├── nvm.scanner.ts           ← Node.js versions via nvm
+│   │   ├── fnm.scanner.ts           ← Node.js versions via fnm (Fast Node Manager)
+│   │   ├── node.scanner.ts          ← System Node.js detection (determines source: nvm/fnm/apt)
+│   │   ├── bun.scanner.ts           ← Bun runtime
+│   │   ├── npm-global.scanner.ts    ← npm ls -g + pnpm ls -g
+│   │   ├── docker.scanner.ts        ← Docker engine + running containers
+│   │   ├── pm2.scanner.ts           ← PM2 managed processes
+│   │   ├── systemd.scanner.ts       ← systemd units
+│   │   ├── binary.scanner.ts        ← Fallback: /usr/local/bin scan
+│   │   ├── index.ts                 ← Scanner registry and parallel runner
+│   │   ├── run-scan.ts              ← Scan orchestration (discovery → probes → events → DB)
+│   │   └── types.ts                 ← Scanner type definitions
+│   ├── probes/                      ← Probe implementations (one file per upstream source)
+│   │   ├── apt.probe.ts             ← Batch apt-cache policy queries
+│   │   ├── github.probe.ts          ← GitHub releases API (owner, repo, tag_prefix, tag_filter)
+│   │   ├── npm.probe.ts             ← npm registry API
+│   │   ├── node.probe.ts            ← Node.js release index (LTS-aware)
+│   │   ├── dockerhub.probe.ts       ← Docker Hub registry API with caching
+│   │   ├── ghcr.probe.ts            ← GitHub Container Registry manifest API
+│   │   ├── snap.probe.ts            ← Snap Store API (architecture-aware)
+│   │   ├── binary.probe.ts          ← Custom shell command via args.command
+│   │   └── script.probe.ts          ← Escape hatch: arbitrary shell command execution
+│   ├── engine/                      ← Probe engine core (orchestration, factory, types)
+│   │   ├── probe-engine.ts          ← Orchestrates: loads TOML, runs probes, merges results
+│   │   ├── probe-factory.ts         ← Maps probe_type string → Probe class instance
+│   │   ├── probe-types.ts           ← Probe interface, ProbeResult, ProbeArgs types
+│   │   ├── version-utils.ts         ← Semantic version comparison utilities
+│   │   └── container-version.ts     ← Docker exec + label + digest version detection
 │   ├── db/
 │   │   ├── database.ts              ← SQLite connection, migrations, table init
-│   │   ├── tools-repo.ts
-│   │   ├── snapshots-repo.ts
-│   │   ├── events-repo.ts
-│   │   └── schedules-repo.ts        ← CRUD for schedules table
+│   │   ├── tools-repo.ts            ← CRUD for tools table
+│   │   ├── snapshots-repo.ts        ← CRUD for snapshots table
+│   │   ├── events-repo.ts           ← CRUD for events table
+│   │   ├── schedules-repo.ts        ← CRUD for schedules table
+│   │   └── scan-jobs-repo.ts        ← CRUD for scan_jobs table (async job tracking)
 │   ├── api/
 │   │   ├── server.ts                ← HTTP server init, middleware, auth guard
 │   │   ├── routes/
@@ -238,23 +277,49 @@ server-lens/
 │   │   │   └── webhooks.ts          ← GET /api/webhooks/log
 │   │   └── middleware/
 │   │       └── auth.ts              ← Bearer token guard — enforced when host != 127.0.0.1
+│   ├── cli/                         ← CLI subcommand handlers
+│   │   ├── install.ts               ← server-lens install — generates cron/systemd files
+│   │   ├── status.ts                ← server-lens status — last scan, next scheduled, health
+│   │   └── events.ts                ← server-lens events — event log query and display
 │   ├── events/
 │   │   ├── event-emitter.ts         ← Diff engine — compares snapshots, emits events
+│   │   ├── system-checks.ts         ← System-level checks (disk, reboot, service health)
 │   │   └── webhook-dispatcher.ts    ← POSTs event payloads to TOML-configured endpoints
 │   ├── config/
 │   │   └── config-loader.ts         ← Parses and validates server-lens.toml
 │   ├── schema/
 │   │   └── types.ts                 ← All TypeScript types: VersionEntry, Event, ProbeDefinition
-│   ├── mcp/                         ← MCP server — tools, resources, prompts, transports
-│   │   ├── server.ts                ← MCP server init, transport router
-│   │   ├── transport/               ← stdio.ts (server-lens mcp) + sse.ts (/mcp endpoint)
-│   │   ├── tools/                   ← One file per tool group
-│   │   ├── resources/               ← Resource URI registry + refresh handlers
-│   │   └── prompts/                 ← Pre-built agent prompt templates
+│   ├── mcp/                         ← MCP server (flat structure — all registered in one file)
+│   │   ├── server.ts                ← stdio transport handler (server-lens mcp subcommand)
+│   │   └── create-server.ts         ← MCP server factory: registers all tools, resources, prompts
+│   ├── utils/
+│   │   ├── debug-log.ts             ← Global debug flag + stderr logging utility
+│   │   └── user-agent.ts            ← Custom User-Agent string for HTTP probe requests
 │   └── ui/                          ← Ink components for terminal display
+│       ├── app.tsx                   ← Root app component, screen router
+│       ├── theme.ts                 ← Theme definitions (claude, claude-blue, custom)
+│       ├── theme-context.tsx         ← React context provider for useTheme()
+│       ├── pages/                   ← Screen pages (one per subcommand view)
+│       │   ├── dashboard.tsx        ← Main TUI: tools grouped by category, update priority
+│       │   ├── scan.tsx             ← Live scan progress with spinner and probe log
+│       │   ├── status.tsx           ← Last scan summary + next scheduled + webhook stats
+│       │   ├── events.tsx           ← Filterable event log viewer
+│       │   └── notes.tsx            ← Release notes display for a single tool
+│       ├── components/              ← Shared UI components (kebab-case)
+│       │   ├── header.tsx           ← App header with hostname and scan timestamp
+│       │   ├── summary-bar.tsx      ← Outdated counts by update_type
+│       │   ├── category-group.tsx   ← Collapsible category section with tool rows
+│       │   ├── tool-row.tsx         ← Single tool: name, versions, update_type, probe info
+│       │   ├── status-badge.tsx     ← Colored symbol + label for status display
+│       │   ├── alert-bar.tsx        ← system.* event alerts below main table
+│       │   ├── scan-progress.tsx    ← Live probe progress (spinner + current tool name)
+│       │   └── divider.tsx          ← Visual separator line
+│       └── hooks/
+│           └── useKeyInput.ts        ← Arrow keys, expand/collapse, quit handlers
 ├── server-lens.toml                 ← Example/default config (copied to /etc/server-lens/ on install)
 ├── package.json
-└── tsconfig.json
+├── tsconfig.json
+└── bun.lock
 ```
 
 ---
@@ -290,7 +355,7 @@ server-lens/
 ## Agent Rules
 
 - **Adding a tool to track:** Edit `server-lens.toml` only — add a `[[probes]]` entry with flat `args.*` fields. No code changes needed.
-- **Adding a new upstream source type:** Create `src/probes/XyzProbe.ts`, register in `src/engine/probe-factory.ts`. No other changes.
+- **Adding a new upstream source type:** Create `src/probes/xyz.probe.ts`, register in `src/engine/probe-factory.ts`. No other changes.
 - **Schema changes:** `VersionEntry` and `Event` types in `src/schema/types.ts` are public contracts. Any field rename or removal requires updating `@docs/data-schema.md` and all downstream consumers.
 - **UI is fully decoupled:** `src/ui/` only imports from `src/schema/types.ts`. Never import db or probe modules in UI components.
 - **DB migrations:** All SQLite schema changes go through the migration runner in `src/db/database.ts`. Never alter tables directly.
@@ -309,3 +374,36 @@ server-lens/
 - **`apt` category collapses by default:** Too many packages to show expanded. Show count summary header only; expand on user keypress.
 - **Display mode renders instantly:** No spinner, no loading state, no async work in display mode.
 - **Release notes are always null in default mode:** `release_notes` and `release_notes_source` must only be populated when `--with-notes` is explicitly passed. Never fetch changelogs during a cron scan or display mode render.
+
+---
+
+## Documentation Maintenance Rules
+
+This project uses a two-layer documentation system:
+
+1. **AGENTS.md + docs/** = canonical "current state" — always describes what exists right now.
+2. **docs/context-log/** = chronological history — what changed, when, by whom.
+
+### Rules for Agents and Contributors
+
+- **AGENTS.md is always current.** After any structural change (new file, new subcommand,
+  new probe type, new scanner, schema change, config change), update AGENTS.md to reflect
+  the current state. Never leave AGENTS.md describing something that no longer exists.
+
+- **Sub-documents stay synchronized.** When you change something that affects a sub-document
+  (`probe-engine.md`, `data-schema.md`, `mcp.md`, `ui-design.md`, `pipeline.md`), update
+  the sub-document in the same commit. Stale sub-docs are worse than no sub-docs.
+
+- **Context log for significant changes.** After completing a feature, bugfix, refactor,
+  or schema change, create a new entry in `docs/context-log/YYYY-MM-DD_short-slug.md`
+  using the template in `docs/context-log/_index.md`. Entries should be written even for
+  documentation-only changes if they reflect a meaningful project evolution.
+
+- **Author detection.** Use `git config user.name` and `git config user.email` for the
+  Author field in context log entries. This captures both human developers and AI agents.
+
+- **Never bloat AGENTS.md with history.** AGENTS.md describes the present. The context
+  log describes the past. Do not add "changelog" sections to AGENTS.md.
+
+- **Update the context-log index.** After creating a new entry, add a row to the entry
+  table in `docs/context-log/_index.md`.

@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { useTheme } from "../theme-context";
 import type { VersionEntry } from "../../schema/types";
-import { ToolRow } from "./ToolRow";
-import { Divider } from "./Divider";
+import { ToolRow } from "./tool-row";
+import { Divider } from "./divider";
 
 interface CategoryGroupProps {
   category: string;

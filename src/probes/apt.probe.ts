@@ -1,4 +1,4 @@
-import type { Probe, ProbeArgs, ProbeResult } from "./probe-types";
+import type { Probe, ProbeArgs, ProbeResult } from "../engine/probe-types";
 
 /** Run apt-cache policy for multiple packages in a single subprocess call */
 export async function batchAptProbe(

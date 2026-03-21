@@ -466,32 +466,20 @@ who/what triggered them (api/cron/cli/mcp).
 ```
 src/
 ├── mcp/
-│   ├── server.ts           ← MCP server init — registers tools, resources, prompts
-│   ├── transport/
-│   │   ├── stdio.ts        ← stdio transport handler (server-lens mcp subcommand)
-│   │   └── sse.ts          ← SSE transport handler (/mcp HTTP endpoint in serve)
-│   ├── tools/
-│   │   ├── scan.ts         ← scan_now, get_scan_status
-│   │   ├── tools.ts        ← get_tools, get_tool, get_outdated, get_probe_failures
-│   │   ├── events.ts       ← get_events
-│   │   ├── snapshots.ts    ← get_snapshots, get_snapshot
-│   │   ├── schedules.ts    ← get_schedules, create_schedule, toggle_schedule
-│   │   └── health.ts       ← get_system_health
-│   ├── resources/
-│   │   └── registry.ts     ← Registers all resource URIs + refresh handlers
-│   └── prompts/
-│       ├── update-summary.ts
-│       ├── pre-update-check.ts
-│       ├── diagnose-probes.ts
-│       └── what-changed.ts
+│   ├── server.ts           ← stdio transport handler (server-lens mcp subcommand)
+│   └── create-server.ts    ← MCP server factory: registers all tools, resources, prompts inline
 ```
+
+All MCP tools, resources, and prompts are registered in `create-server.ts` as a single
+monolithic file. This is a deliberate architectural choice — all registrations in one
+place for easy discovery and grep-ability. No subdirectories.
 
 ---
 
 ## Agent Rules (MCP-specific)
 
 - **MCP tools share the same DB repos as the REST API.** Never duplicate DB query logic —
-  import from `src/db/*-repo.ts` in both `src/api/routes/` and `src/mcp/tools/`.
+  import from `src/db/*-repo.ts` in both `src/api/routes/` and `src/mcp/create-server.ts`.
 - **stdio transport must be silent on stdout except for MCP protocol messages.**
   All logging in stdio mode goes to stderr. Any stray stdout breaks the MCP protocol.
 - **MCP tool descriptions are agent-facing documentation.** Write them as clear, specific

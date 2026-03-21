@@ -4,17 +4,17 @@
  */
 
 import type { DiscoveredTool } from "./types";
-import { BunScanner } from "./BunScanner";
-import { NodeScanner } from "./NodeScanner";
-import { NpmGlobalScanner } from "./NpmGlobalScanner";
-import { NvmScanner } from "./NvmScanner";
-import { FnmScanner } from "./FnmScanner";
-import { AptScanner } from "./AptScanner";
-import { SnapScanner } from "./SnapScanner";
-import { DockerScanner } from "./DockerScanner";
-import { Pm2Scanner } from "./Pm2Scanner";
-import { SystemdScanner } from "./SystemdScanner";
-import { BinaryScanner } from "./BinaryScanner";
+import { BunScanner } from "./bun.scanner";
+import { NodeScanner } from "./node.scanner";
+import { NpmGlobalScanner } from "./npm-global.scanner";
+import { NvmScanner } from "./nvm.scanner";
+import { FnmScanner } from "./fnm.scanner";
+import { AptScanner } from "./apt.scanner";
+import { SnapScanner } from "./snap.scanner";
+import { DockerScanner } from "./docker.scanner";
+import { Pm2Scanner } from "./pm2.scanner";
+import { SystemdScanner } from "./systemd.scanner";
+import { BinaryScanner } from "./binary.scanner";
 
 const NODE_SOURCE_PRIORITY: Record<string, number> = {
   nvm: 3,

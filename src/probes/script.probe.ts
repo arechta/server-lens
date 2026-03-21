@@ -1,5 +1,5 @@
 import { platform } from "os";
-import type { Probe, ProbeArgs, ProbeResult } from "./probe-types";
+import type { Probe, ProbeArgs, ProbeResult } from "../engine/probe-types";
 
 function getShellArgs(command: string): [string, ...string[]] {
   if (platform() === "win32") {

@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import { useTheme } from "../theme-context";
-import { SummaryBar } from "./SummaryBar";
+import { SummaryBar } from "./summary-bar";
 import type { SnapshotSummary } from "../../schema/types";
 
 /** Logo area: visual 1:1 aspect-square. Height must fit Recent scans (title + 5 rows) + Summary. */

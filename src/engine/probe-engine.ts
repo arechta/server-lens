@@ -7,7 +7,7 @@ import type { DiscoveredTool } from "../scanner/types";
 import type { VersionEntry, ToolCategory, ToolStatus, ProbeType } from "../schema/types";
 import type { Config, ProbeDefinition } from "../config/config-loader";
 import { createProbe } from "./probe-factory";
-import { batchAptProbe } from "./AptProbe";
+import { batchAptProbe } from "../probes/apt.probe";
 import { computeUpdateType } from "./version-utils";
 import {
   getContainerCurrentVersion,
@@ -16,8 +16,8 @@ import {
   getVersionByDigestFromDockerHub,
   getDigestForTagFromDockerHub,
 } from "./container-version";
-import { getGhcrManifestDigest } from "./GhcrProbe";
-import { clearDockerHubTagCache } from "./DockerHubProbe";
+import { getGhcrManifestDigest } from "../probes/ghcr.probe";
+import { clearDockerHubTagCache } from "../probes/dockerhub.probe";
 import { resetUserAgent } from "../utils/user-agent";
 
 /** Built-in exec commands for common containers when labels are missing. Config overrides these. */

@@ -7,7 +7,7 @@
 
 import React from "react";
 import { render } from "ink";
-import { App } from "./ui/App";
+import { App } from "./ui/app";
 import { loadConfig } from "./config/config-loader";
 import { getDatabase } from "./db/database";
 import { getLatestSnapshot, getSnapshotList } from "./db/snapshots-repo";
@@ -15,8 +15,8 @@ import { getEvents } from "./db/events-repo";
 import { getToolByName } from "./db/tools-repo";
 import { getTheme } from "./ui/theme";
 import type { SnapshotSummary, VersionEntry } from "./schema/types";
-import type { AlertItem } from "./ui/components/AlertBar";
-import type { ScanLogEntry } from "./ui/screens/ScanScreen";
+import type { AlertItem } from "./ui/components/alert-bar";
+import type { ScanLogEntry } from "./ui/pages/scan";
 import { existsSync } from "fs";
 import { parseExpression } from "cron-parser";
 
@@ -255,7 +255,7 @@ if (subcommand === "events") {
   const limitIdx  = args.indexOf("--limit");
   const limit     = limitIdx >= 0 ? parseInt(args[limitIdx + 1] ?? "50", 10) : 50;
 
-  let eventsData: import("./ui/screens/EventsScreen").EventItem[] = [];
+  let eventsData: import("./ui/pages/events").EventItem[] = [];
   if (existsSync(config.dbPath)) {
     const db = getDatabase(config.dbPath);
     const rows = getEvents(db, { event: eventFilter, toolName: toolFilter, since: sinceFilter, limit });

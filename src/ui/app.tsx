@@ -2,16 +2,16 @@ import React from "react";
 import { Box } from "ink";
 import { ThemeProvider } from "./theme-context";
 import { getTheme } from "./theme";
-import { DashboardScreen } from "./screens/DashboardScreen";
-import { StatusScreen } from "./screens/StatusScreen";
-import { EventsScreen } from "./screens/EventsScreen";
-import { NotesScreen } from "./screens/NotesScreen";
-import { ScanScreen } from "./screens/ScanScreen";
-import type { ScanLogEntry } from "./screens/ScanScreen";
+import { DashboardScreen } from "./pages/dashboard";
+import { StatusScreen } from "./pages/status";
+import { EventsScreen } from "./pages/events";
+import { NotesScreen } from "./pages/notes";
+import { ScanScreen } from "./pages/scan";
+import type { ScanLogEntry } from "./pages/scan";
 import type { SnapshotSummary, VersionEntry } from "../schema/types";
-import type { AlertItem } from "./components/AlertBar";
-import type { StatusData } from "./screens/StatusScreen";
-import type { EventItem } from "./screens/EventsScreen";
+import type { AlertItem } from "./components/alert-bar";
+import type { StatusData } from "./pages/status";
+import type { EventItem } from "./pages/events";
 
 export type AppScreen = "dashboard" | "status" | "events" | "notes" | "scan";
 

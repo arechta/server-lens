@@ -1,13 +1,13 @@
 import type { Probe } from "./probe-types";
-import { AptProbe } from "./AptProbe";
-import { GithubProbe } from "./GithubProbe";
-import { NpmProbe } from "./NpmProbe";
-import { NodeProbe } from "./NodeProbe";
-import { DockerHubProbe } from "./DockerHubProbe";
-import { GhcrProbe } from "./GhcrProbe";
-import { SnapProbe } from "./SnapProbe";
-import { BinaryProbe } from "./BinaryProbe";
-import { ScriptProbe } from "./ScriptProbe";
+import { AptProbe } from "../probes/apt.probe";
+import { GithubProbe } from "../probes/github.probe";
+import { NpmProbe } from "../probes/npm.probe";
+import { NodeProbe } from "../probes/node.probe";
+import { DockerHubProbe } from "../probes/dockerhub.probe";
+import { GhcrProbe } from "../probes/ghcr.probe";
+import { SnapProbe } from "../probes/snap.probe";
+import { BinaryProbe } from "../probes/binary.probe";
+import { ScriptProbe } from "../probes/script.probe";
 
 export function createProbe(
   probeType: string,

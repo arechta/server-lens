@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Text, useStdout } from "ink";
 import { useTheme } from "../theme-context";
-import { ScanProgress } from "../components/ScanProgress";
+import { ScanProgress } from "../components/scan-progress";
 
 export interface ScanLogEntry {
   name: string;

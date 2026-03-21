@@ -1,4 +1,4 @@
-import type { Probe, ProbeArgs, ProbeResult } from "./probe-types";
+import type { Probe, ProbeArgs, ProbeResult } from "../engine/probe-types";
 
 /** BinaryProbe only gets current_version — latest remains null (untracked) */
 export class BinaryProbe implements Probe {

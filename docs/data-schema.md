@@ -174,7 +174,7 @@ interface VersionEntry {
   latest_release_date:  string | null    // ISO 8601 date of latest upstream release
 
   // ── Probe Metadata ────────────────────────────────────────────────────────
-  probe_type:           ProbeType | null // "apt"|"github"|"npm"|"dockerhub"|"ghcr"|"binary"|"script"|null
+  probe_type:           ProbeType | null // "apt"|"github"|"npm"|"node"|"dockerhub"|"ghcr"|"snap"|"binary"|"script"|null
   probe_status:         ProbeStatus      // "success"|"failed"|"timeout"|"rate_limited"|"skipped"
   probe_source:         string | null    // Upstream URL or command queried
   probe_error:          string | null    // Error message if probe_status !== "success"
